@@ -285,7 +285,7 @@ function EquicordSettings() {
             IS_DISCORD_DESKTOP && {
                 key: "anonymousUsageStats",
                 title: t("Count me anonymously in the Zenkord user counter"),
-                description: t("While Zenkord is open, it sends a random identifier every 5 minutes so the website can show how many people use it. No account, username or message is ever sent."),
+                description: t("While Zenkord is open, it sends a random identifier every 5 minutes so the website can show how many people use it, plus a single signal with no identifier the first time it is installed. No account, username or message is ever sent."),
                 restartRequired: true,
                 warning: { enabled: false },
             },

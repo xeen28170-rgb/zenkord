@@ -15,6 +15,11 @@ entirely on your device and are never sent to us.
   username, message or device data is sent. The counter only keeps a salted, daily-rotated
   hash of your IP address for 6 minutes to prevent abuse. You can turn it off in the Zenkord
   settings ("Count me anonymously in the Zenkord user counter").
+- **Anonymous install counter**: the first time Zenkord runs on a computer, it sends one single
+  request with no identifier at all, so the website can show how many installations exist. A
+  local file remembers it was sent so the same computer is never counted twice. The counter only
+  keeps a salted, daily-rotated hash of your IP address for one day to limit abuse. The same
+  setting turns it off.
 - **Optional plugins** (AI, translation, etc.) contact the third-party services you choose to
   enable in their settings.
 

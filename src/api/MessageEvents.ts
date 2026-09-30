@@ -56,8 +56,10 @@ export type MessageEditListener = (channelId: string, messageId: string, message
 const sendListeners = new Set<MessageSendListener>();
 const editListeners = new Set<MessageEditListener>();
 
-export async function _handlePreSend(channelId: string, messageObj: MessageObject, options: MessageOptions, replyOptions: MessageReplyOptions) {
+export async function _handlePreSend(channelId: string, messageObj: MessageObject, options: MessageOptions, replyOptions: MessageReplyOptions, contentOptions?: Pick<MessageOptions, "stickers" | "uploads">) {
     options.replyOptions = replyOptions;
+    options.stickers ??= contentOptions?.stickers;
+    options.uploads ??= contentOptions?.uploads;
     for (const listener of sendListeners) {
         try {
             const result = await listener(channelId, messageObj, options);

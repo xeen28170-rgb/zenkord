@@ -1,0 +1,16 @@
+﻿/* Stealth Mode - hide Zenkord plugin UI (but NOT settings access) */
+
+/* Plugin buttons: header bar, channel toolbar, chat bar, user area */
+body.zenkord-stealth .vc-header-bar-btns,
+body.zenkord-stealth .vc-channel-toolbar-btns,
+body.zenkord-stealth .vc-chat-bar-btns,
+body.zenkord-stealth .vc-user-area-btns,
+
+/* Titlebar injected elements */
+body.zenkord-stealth #zenkord-titlebar-btn,
+body.zenkord-stealth #zenkord-titlebar-link-style,
+
+/* ZenkordAI nav button */
+body.zenkord-stealth .nai-nav-item {
+    display: none !important;
+}

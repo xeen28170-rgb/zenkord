@@ -1,0 +1,187 @@
+name: Build & Release Latest
+
+on:
+    push:
+        branches:
+            - main
+    workflow_dispatch:
+
+env:
+    FORCE_COLOR: true
+    GH_TOKEN: ${{ github.token }}
+
+permissions:
+    contents: write
+
+jobs:
+    Build:
+        name: Build Zenkord
+        runs-on: windows-latest
+
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: pnpm/action-setup@v6
+
+            - name: Use Node.js 22
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: "pnpm"
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build standalone
+              run: pnpm buildStandalone
+
+            - name: Generate plugin lists
+              run: |
+                  pnpm generatePluginJson dist/plugins.json
+                  pnpm generateEquicordPluginJson dist/equicordplugins.json
+                  pnpm generateVencordPluginJson dist/vencordplugins.json
+                  pnpm generateDevsList dist/devs.json
+
+            - name: Package zenkord-dist.zip
+              shell: pwsh
+              run: |
+                  $staging = "zenkord-dist-staging"
+                  New-Item -ItemType Directory -Path $staging -Force | Out-Null
+
+                  # Compiled files (patcher.js, renderer.js, preload.js, renderer.css)
+                  if (Test-Path "dist\desktop") {
+                      Copy-Item "dist\desktop\*" "$staging\" -Recurse -Force
+                  }
+
+                  # Ghost-server (voice/stream server)
+                  if (Test-Path "ghost-server") {
+                      Copy-Item "ghost-server" "$staging\ghost-server" -Recurse
+                  }
+
+                  # Sanity-check
+                  if (-not (Test-Path "$staging\patcher.js")) {
+                      Write-Error "BUILD ERROR: patcher.js missing from staging root"
+                      exit 1
+                  }
+
+                  Compress-Archive -Path "$staging\*" -DestinationPath "zenkord-dist.zip" -Force
+                  Write-Host "zenkord-dist.zip created ($($(Get-Item zenkord-dist.zip).Length / 1MB) MB)"
+
+                  $buildInfo = Get-Content "$staging\build.json" -Raw | ConvertFrom-Json
+                  $manifest = [ordered]@{
+                      version = $buildInfo.version
+                      buildTime = [double]$buildInfo.buildTime
+                      gitHash = $env:GITHUB_SHA
+                      asset = "zenkord-dist.zip"
+                      sha256 = (Get-FileHash "zenkord-dist.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+                  }
+                  $manifest | ConvertTo-Json | Set-Content "update-manifest.json" -Encoding utf8NoBOM
+
+            - name: Upload other build artifacts
+              shell: pwsh
+              run: |
+                  $releaseDir = "dist\release"
+                  New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+
+                  # Copy browser extension files
+                  if (Test-Path "dist\browser\browser.*") {
+                      Copy-Item "dist\browser\browser.*" $releaseDir
+                  }
+                  # Copy userscript
+                  Get-ChildItem "dist\Equicord.user.*" -ErrorAction SilentlyContinue | Copy-Item -Destination $releaseDir
+                  # Copy json/asar files
+                  Get-ChildItem "dist\*.json","dist\*.asar","dist\*.zip" -ErrorAction SilentlyContinue | Copy-Item -Destination $releaseDir
+                  # Copy desktop extras
+                  Get-ChildItem "dist\desktop\*" -ErrorAction SilentlyContinue | Copy-Item -Destination $releaseDir
+
+                  # Clean up empty files and package.json
+                  Get-ChildItem $releaseDir -File | Where-Object { $_.Length -eq 0 } | Remove-Item
+                  Remove-Item "$releaseDir\package.json" -ErrorAction SilentlyContinue
+                  Remove-Item "$releaseDir\*.map" -ErrorAction SilentlyContinue
+
+            - name: Create or update latest release
+              shell: pwsh
+              run: |
+                  $tag = "latest"
+
+                  # Try to create the release (fails silently if already exists)
+                  gh release create $tag --title "Latest Build" --notes "Automated build from main branch ($env:GITHUB_SHA)" --latest=false 2>$null
+
+                  # Upload artifacts (--clobber overwrites existing files)
+                  gh release upload $tag --clobber "zenkord-dist.zip"
+                  gh release upload $tag --clobber "update-manifest.json"
+
+                  if (Test-Path "dist\release") {
+                      Get-ChildItem "dist\release\*" -File | ForEach-Object {
+                          gh release upload $tag --clobber $_.FullName
+                      }
+                  }
+
+                  # Mirror the build as a versioned release so /releases/latest
+                  # (used by the installer) always serves the newest build.
+                  $manifest = Get-Content "update-manifest.json" -Raw | ConvertFrom-Json
+                  $compatTag = "v$($manifest.version)"
+                  gh release view $compatTag 2>$null
+                  if ($LASTEXITCODE -ne 0) {
+                      gh release create $compatTag --target $env:GITHUB_SHA --title "Zenkord $($manifest.version)" --notes "Build automatique ($env:GITHUB_SHA)" --latest
+                  }
+                  gh release upload $compatTag --clobber "zenkord-dist.zip" "update-manifest.json"
+                  gh release edit $compatTag --latest
+
+    Build-Mac:
+        name: Build Zenkord (macOS)
+        runs-on: macos-latest
+
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: pnpm/action-setup@v6
+
+            - name: Use Node.js 22
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: "pnpm"
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build standalone
+              run: pnpm buildStandalone
+
+            - name: Generate plugin lists
+              run: |
+                  pnpm generatePluginJson dist/plugins.json
+                  pnpm generateEquicordPluginJson dist/equicordplugins.json
+                  pnpm generateVencordPluginJson dist/vencordplugins.json
+                  pnpm generateDevsList dist/devs.json
+
+            - name: Build desktop app & package .app/.dmg
+              run: |
+                  pnpm buildDesktop
+                  for attempt in 1 2 3; do
+                      if npx electron-builder --config electron-builder.config.cjs --mac --publish never; then
+                          break
+                      fi
+                      if [ "$attempt" -eq 3 ]; then
+                          echo "electron-builder failed after 3 attempts"
+                          exit 1
+                      fi
+                      echo "electron-builder download failed; retrying in $((attempt * 15)) seconds..."
+                      sleep $((attempt * 15))
+                  done
+
+            - name: Create or update latest release
+              shell: pwsh
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  $tag = "latest"
+
+                  # Try to create the release (fails silently if already exists)
+                  gh release create $tag --title "Latest Build" --notes "Automated build from main branch ($env:GITHUB_SHA)" --latest=false 2>$null
+
+                  # Upload artifacts (--clobber overwrites existing files)
+                  Get-ChildItem "release/*.dmg","release/*.zip","release/*.app.tar.gz" -ErrorAction SilentlyContinue | ForEach-Object {
+                      gh release upload $tag --clobber $_.FullName
+                  }

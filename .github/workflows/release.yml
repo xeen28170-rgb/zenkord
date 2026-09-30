@@ -1,0 +1,191 @@
+name: Build & Release Zenkord
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync version with tag
+        shell: pwsh
+        run: |
+          $tag = "$env:GITHUB_REF" -replace '^refs/tags/v', ''
+          $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
+          $pkg.version = $tag
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content "package.json"
+          Write-Host "Root version set to $tag"
+
+      - name: Build Equicord renderer (standalone)
+        run: pnpm buildStandalone
+
+      - name: Build browser extension
+        run: pnpm buildWebStandalone
+
+      - name: Prepare extension artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release/extension | Out-Null
+          if (Test-Path "dist/extension-chrome.zip") {
+            Copy-Item dist/extension-chrome.zip release/extension/Zenkord-Chrome.zip -Force
+          }
+          if (Test-Path "dist/extension-firefox.zip") {
+            Copy-Item dist/extension-firefox.zip release/extension/Zenkord-Firefox.zip -Force
+          }
+          if (Test-Path "dist/Equicord.user.js") {
+            Copy-Item dist/Equicord.user.js release/extension/Zenkord.user.js -Force
+          }
+
+      - name: Package zenkord-dist.zip
+        shell: pwsh
+        run: |
+          $staging = "zenkord-dist-staging"
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+
+          if (Test-Path "dist\desktop") {
+            Copy-Item "dist\desktop\*" "$staging\" -Recurse -Force
+          } elseif (Test-Path "dist") {
+            Copy-Item "dist\*" "$staging\" -Recurse -Force
+          }
+
+          if (Test-Path "ghost-server") {
+            Copy-Item "ghost-server" "$staging\ghost-server" -Recurse
+          }
+
+          if (-not (Test-Path "$staging\patcher.js")) {
+            Write-Error "BUILD ERROR: patcher.js missing from staging root"
+            exit 1
+          }
+
+          Compress-Archive -Path "$staging\*" -DestinationPath "zenkord-dist.zip" -Force
+          Write-Host "zenkord-dist.zip created ($($(Get-Item zenkord-dist.zip).Length / 1MB) MB)"
+
+          $buildInfo = Get-Content "$staging\build.json" -Raw | ConvertFrom-Json
+          $manifest = [ordered]@{
+            version = $buildInfo.version
+            buildTime = [double]$buildInfo.buildTime
+            gitHash = $env:GITHUB_SHA
+            asset = "zenkord-dist.zip"
+            sha256 = (Get-FileHash "zenkord-dist.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          }
+          $manifest | ConvertTo-Json | Set-Content "update-manifest.json" -Encoding utf8NoBOM
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "8.x"
+
+      - name: Build Zenkord Installer
+        shell: pwsh
+        run: |
+          Push-Location installer-src
+          dotnet publish -c Release
+          Pop-Location
+          # Copy to expected upload location
+          New-Item -ItemType Directory -Force -Path release/installer | Out-Null
+          Copy-Item installer-src/bin/Release/net8.0-windows/win-x64/publish/Zenkord-Installer.exe release/installer/Zenkord-Installer.exe -Force
+          Write-Host "Installer built: $(Get-Item release/installer/Zenkord-Installer.exe | Select-Object -ExpandProperty Length)"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: |
+            zenkord-dist.zip
+            update-manifest.json
+            release/installer/Zenkord-Installer.exe
+            release/extension/Zenkord-Chrome.zip
+            release/extension/Zenkord-Firefox.zip
+            release/extension/Zenkord.user.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-mac:
+    needs: [build]
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync version with tag
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          node -e "
+            const pkg = require('./package.json');
+            pkg.version = '$tag';
+            require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
+          "
+          echo "Root version set to $tag"
+
+      - name: Build standalone
+        run: pnpm buildStandalone
+
+      - name: Build desktop app & package .app/.dmg
+        run: |
+          pnpm buildDesktop
+          for attempt in 1 2 3; do
+            if npx electron-builder --config electron-builder.config.cjs --mac --publish never; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "electron-builder failed after 3 attempts"
+              exit 1
+            fi
+            echo "electron-builder download failed; retrying in $((attempt * 15)) seconds..."
+            sleep $((attempt * 15))
+          done
+
+      - name: Upload macOS artifacts to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          found=0
+          for f in release/*.dmg release/*.zip release/*.app.tar.gz; do
+            if [ -f "$f" ]; then
+              echo "Uploading $f..."
+              gh release upload "$tag" --clobber "$f" || echo "WARN: failed to upload $f (release may not exist yet)"
+              found=$((found+1))
+            fi
+          done
+          echo "Uploaded $found artifact(s)"
+          if [ "$found" -eq 0 ]; then
+            echo "WARN: no macOS artifacts found in release/"
+            ls -la release/ 2>/dev/null || echo "release/ does not exist"
+          fi

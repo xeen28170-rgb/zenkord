@@ -1,0 +1,148 @@
+﻿{
+    "compilerOptions": {
+        "resolveJsonModule": true,
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+        "allowJs": true,
+        "lib": [
+            "DOM",
+            "DOM.Iterable",
+            "esnext",
+            "esnext.array",
+            "esnext.asynciterable",
+            "esnext.symbol"
+        ],
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "noImplicitAny": false,
+        "target": "ESNEXT",
+        "jsx": "preserve",
+        "baseUrl": "./src/",
+        "paths": {
+            "@main/*": [
+                "./main/*"
+            ],
+            "@api/*": [
+                "./api/*"
+            ],
+            "@components/*": [
+                "./components/*"
+            ],
+            "@utils/*": [
+                "./utils/*"
+            ],
+            "@debug/*": [
+                "./debug/*"
+            ],
+            "@plugins/*": [
+                "./plugins/*"
+            ],
+            "@shared/*": [
+                "./shared/*"
+            ],
+            "@webpack/common": [
+                "./webpack/common"
+            ],
+            "@webpack/common/*": [
+                "./webpack/common/*"
+            ],
+            "@webpack": [
+                "./webpack/webpack"
+            ],
+            "@webpack/types": [
+                "./webpack/types"
+            ],
+            "@webpack/patcher": [
+                "./webpack/patchWebpack"
+            ],
+            "@webpack/wreq.d": [
+                "./webpack/wreq.d"
+            ],
+            "@equicord/types": [
+                "../packages/vencord-types/index"
+            ],
+            "@equicord/types/webpack": [
+                "../packages/vencord-types/webpack-types"
+            ],
+            "@equicord/types/webpack/common": [
+                "../packages/vencord-types/webpack-common"
+            ],
+            "@equicord/types/utils": [
+                "../packages/vencord-types/utils-types"
+            ],
+            "@equicord/types/utils/types": [
+                "../packages/vencord-types/utils-types/types"
+            ],
+            "@equicord/types/components": [
+                "../packages/vencord-types/components-types"
+            ],
+            "@equicord/types/api/*": [
+                "../packages/vencord-types/api/*"
+            ],
+            "@equicord/types/plugins/*": [
+                "../packages/vencord-types/plugins/*"
+            ],
+            "@Zenkord/types": [
+                "../packages/vencord-types/index"
+            ],
+            "@Zenkord/types/webpack": [
+                "../packages/vencord-types/webpack-types"
+            ],
+            "@Zenkord/types/webpack/common": [
+                "../packages/vencord-types/webpack-common"
+            ],
+            "@Zenkord/types/utils": [
+                "../packages/vencord-types/utils-types"
+            ],
+            "@Zenkord/types/utils/types": [
+                "../packages/vencord-types/utils-types/types"
+            ],
+            "@Zenkord/types/components": [
+                "../packages/vencord-types/components-types"
+            ],
+            "@Zenkord/types/api/*": [
+                "../packages/vencord-types/api/*"
+            ],
+            "@Zenkord/types/plugins/*": [
+                "../packages/vencord-types/plugins/*"
+            ],
+            "@zenkordplugins/*": [
+                "./zenkordplugins/*"
+            ],
+            "@equicordplugins/*": [
+                "./equicordplugins/*"
+            ],
+            "@illegalcordplugins/*": [
+                "./illegalcordplugins/*"
+            ],
+            "main/*": [
+                "./zenkord/main/*"
+            ],
+            "shared/*": [
+                "./zenkord/shared/*",
+                "./shared/*"
+            ],
+            "renderer/*": [
+                "./zenkord/renderer/*"
+            ]
+        },
+        "plugins": [
+            // Transform paths in output .d.ts files (Include this line if you output declarations files)
+            {
+                "transform": "typescript-transform-paths",
+                "afterDeclarations": true
+            }
+        ],
+        "outDir": "who-fucking-cares-dude"
+    },
+    "include": [
+        "src/**/*",
+        "browser/**/*",
+        "scripts/**/*",
+        "eslint.config.mjs"
+    ],
+}

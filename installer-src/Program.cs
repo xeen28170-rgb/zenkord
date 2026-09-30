@@ -448,7 +448,8 @@ namespace ZenkordInstaller
             }
             else
             {
-                SetProgress(77, "No checksum file found — skipping verification (download not validated).");
+                try { File.Delete(tmpZip); } catch { }
+                throw new Exception("Could not verify the download (update-manifest.json missing or invalid). Installation aborted for your safety.");
             }
 
             SetProgress(78, "Preparing extraction...");
@@ -873,65 +874,26 @@ namespace ZenkordInstaller
         // ── SHA-256 verification helpers ────────────────────────────────────
 
         /// <summary>
-        /// Attempts to download a SHA256SUMS or checksums.txt file from the same
-        /// release and extract the expected hash for the given zip filename.
-        /// Returns null if no checksums file is found.
+        /// Reads the expected SHA-256 from update-manifest.json, published by CI
+        /// in the same release as zenkord-dist.zip. Returns null if unavailable.
         /// </summary>
         private async Task<string> DownloadChecksumAsync(string zipDownloadUrl)
         {
-            // Derive checksum URL: replace the zip filename with "checksums.txt" or "SHA256SUMS"
-            var zipUrl = zipDownloadUrl;
-            var checksumCandidates = new[] {
-                zipUrl.Replace("zenkord-dist.zip", "checksums.txt"),
-                zipUrl.Replace("zenkord-dist.zip", "SHA256SUMS"),
-                zipUrl.Replace("zenkord-dist.zip", "zenkord-dist.zip.sha256"),
-            };
-
-            foreach (var checksumUrl in checksumCandidates)
+            try
             {
-                try
+                using (var req = new HttpRequestMessage(HttpMethod.Get, zipDownloadUrl.Replace(DIST_ZIP, "update-manifest.json")))
                 {
-                    using (var req = new HttpRequestMessage(HttpMethod.Head, checksumUrl))
-                    {
-                        req.Headers.Add("User-Agent", "Zenkord-Installer/2.0");
-                        var headResp = await _http.SendAsync(req);
-                        if (!headResp.IsSuccessStatusCode) continue;
-                    }
-
-                    using (var req = new HttpRequestMessage(HttpMethod.Get, checksumUrl))
-                    {
-                        req.Headers.Add("User-Agent", "Zenkord-Installer/2.0");
-                        var resp = await _http.SendAsync(req);
-                        if (!resp.IsSuccessStatusCode) continue;
-
-                        var content = await resp.Content.ReadAsStringAsync();
-                        var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-                        foreach (var line in lines)
-                        {
-                            // Format: "sha256hash  filename.zip"
-                            // Also match "sha256hash *filename.zip" (bsd style) and "sha256hash  zenkord-dist.zip"
-                            var parts = line.Trim().Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                            if (parts.Length >= 2)
-                            {
-                                var hash = parts[0].Trim();
-                                var fn = parts[1].TrimStart('*', ' ');
-
-                                if (fn.Equals("zenkord-dist.zip", StringComparison.OrdinalIgnoreCase) && hash.Length == 64)
-                                {
-                                    return hash.ToLowerInvariant();
-                                }
-                            }
-                        }
-                    }
-                }
-                catch
-                {
-                    // Try next URL format
+                    req.Headers.Add("User-Agent", "Zenkord-Installer/2.0");
+                    var resp = await _http.SendAsync(req);
+                    if (!resp.IsSuccessStatusCode) return null;
+                    var match = Regex.Match(await resp.Content.ReadAsStringAsync(), "\"sha256\"\\s*:\\s*\"([a-fA-F0-9]{64})\"");
+                    return match.Success ? match.Groups[1].Value.ToLowerInvariant() : null;
                 }
             }
-
-            return null;
+            catch
+            {
+                return null;
+            }
         }
 
         private static string ComputeSha256(string filePath)

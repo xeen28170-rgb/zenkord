@@ -173,7 +173,7 @@ function showGreenUpdateBanner() {
     titleSpan.style.fontWeight = "600";
     titleSpan.style.color = "#ffffff";
     titleSpan.style.flexShrink = "0";
-    titleSpan.textContent = "Zenkord Update Available";
+    titleSpan.textContent = "Mise à jour de Zenkord disponible";
 
     const statusSpan = document.createElement("span");
     statusSpan.style.opacity = "0.7";
@@ -182,50 +182,37 @@ function showGreenUpdateBanner() {
     statusSpan.style.textOverflow = "ellipsis";
     statusSpan.style.whiteSpace = "nowrap";
 
-    let countdown = 10;
     let installing = false;
-    let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
     function setStatus(text: string) { statusSpan.textContent = text; }
-    setStatus(`Auto-installing in ${countdown}s... (or click to install now)`);
+    setStatus("Une nouvelle version est prête. Installe-la quand tu veux, Discord redémarrera ensuite.");
 
     async function doInstall() {
         if (installing) return;
         installing = true;
-        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
         updateBtn.style.cursor = "not-allowed";
         updateBtn.style.opacity = "0.7";
-        updateBtn.textContent = "Installing...";
-        setStatus("Downloading update...");
+        updateBtn.textContent = "Installation…";
+        laterBtn.style.display = "none";
+        setStatus("Téléchargement de la mise à jour…");
 
         try {
             const downloaded = await update();
             if (!downloaded) throw new Error("Download failed");
-            setStatus("Downloaded! Extracting...");
+            setStatus("Téléchargée et vérifiée. Installation…");
             await rebuild();
-            setStatus("Update successful! Restarting in 3s...");
+            setStatus("Mise à jour installée ! Redémarrage dans 3 secondes…");
             setTimeout(() => relaunch(), 3_000);
         } catch (e) {
-            UpdateLogger.error("Auto-install failed", e);
-            setStatus("Install failed. Check console. Update will apply on restart.");
+            UpdateLogger.error("Update install failed", e);
+            setStatus("L'installation a échoué. Réessaie, ou redémarre Discord.");
             installing = false;
             updateBtn.style.cursor = "pointer";
             updateBtn.style.opacity = "1";
-            updateBtn.textContent = "Retry";
+            updateBtn.textContent = "Réessayer";
+            laterBtn.style.display = "";
         }
     }
-
-    // Auto-install after 10s
-    countdownTimer = setInterval(() => {
-        countdown--;
-        if (countdown <= 0) {
-            clearInterval(countdownTimer!);
-            countdownTimer = null;
-            doInstall();
-        } else {
-            setStatus(`Auto-installing in ${countdown}s... (or click to install now)`);
-        }
-    }, 1_000);
 
     leftContent.appendChild(titleSpan);
     leftContent.appendChild(statusSpan);
@@ -253,34 +240,33 @@ function showGreenUpdateBanner() {
     });
     updateBtn.onmouseenter = () => { if (!installing) updateBtn.style.background = "#4752C4"; };
     updateBtn.onmouseleave = () => { if (!installing) updateBtn.style.background = "#5865F2"; };
-    updateBtn.textContent = "Install Now";
+    updateBtn.textContent = "Mettre à jour";
     updateBtn.addEventListener("click", doInstall);
 
-    const closeBtn = document.createElement("button");
-    Object.assign(closeBtn.style, {
+    const laterBtn = document.createElement("button");
+    Object.assign(laterBtn.style, {
         background: "transparent",
         border: "none",
         color: "#b5bac1",
         cursor: "pointer",
-        fontSize: "16px",
-        padding: "0 4px",
+        fontSize: "13px",
+        fontWeight: "500",
+        padding: "4px 8px",
         fontFamily: "inherit",
-        lineHeight: "1",
         transition: "color 0.2s"
     });
-    closeBtn.onmouseenter = () => closeBtn.style.color = "#dbdee1";
-    closeBtn.onmouseleave = () => closeBtn.style.color = "#b5bac1";
-    closeBtn.textContent = "✕";
-    closeBtn.title = "Dismiss (will auto-install when Discord closes)";
-    closeBtn.addEventListener("click", () => {
-        if (installing) return; // do not close if installing
-        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    laterBtn.onmouseenter = () => laterBtn.style.color = "#dbdee1";
+    laterBtn.onmouseleave = () => laterBtn.style.color = "#b5bac1";
+    laterBtn.textContent = "Plus tard";
+    laterBtn.title = "La mise à jour te sera reproposée au prochain démarrage de Discord";
+    laterBtn.addEventListener("click", () => {
+        if (installing) return;
         banner.remove();
-        UpdateLogger.info("Update banner dismissed — will auto-apply on Discord quit.");
+        UpdateLogger.info("Update postponed by the user, will be offered again on next launch.");
     });
 
+    rightContent.appendChild(laterBtn);
     rightContent.appendChild(updateBtn);
-    rightContent.appendChild(closeBtn);
 
     banner.appendChild(leftContent);
     banner.appendChild(rightContent);
@@ -305,7 +291,7 @@ async function runUpdateCheck() {
         if (notifiedForUpdatesThisSession) return;
         notifiedForUpdatesThisSession = true;
 
-        // Affiche la bannière verte avec auto-install (compte à rebours 10s)
+        // Propose la mise à jour via la bannière, sans installation forcée
         setTimeout(() => showGreenUpdateBanner(), 8_000);
     } catch (err) {
         UpdateLogger.error("Failed to check for updates", err);
@@ -323,13 +309,13 @@ function initTrayIpc() {
             VencordNative.tray.setUpdateState(isOutdated);
 
             if (isOutdated) {
-                showNotice("A Zenkord update is available!", "View Update", () => openSettingsTabModal(UpdaterTab!));
+                showNotice("Une mise à jour de Zenkord est disponible !", "Voir", () => openSettingsTabModal(UpdaterTab!));
             } else {
-                showNotice("No updates available, you're on the latest version!", "OK", popNotice);
+                showNotice("Aucune mise à jour : tu as déjà la dernière version !", "OK", popNotice);
             }
         } catch (err) {
             UpdateLogger.error("Failed to check for updates from tray", err);
-            showNotice("Failed to check for updates, check the console for more info", "OK", popNotice);
+            showNotice("Impossible de vérifier les mises à jour. Réessaie plus tard.", "OK", popNotice);
         }
     });
 

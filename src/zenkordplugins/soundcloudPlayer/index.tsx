@@ -860,7 +860,7 @@ async function _doUpdateRichPresence() {
                 assets: large_image ? { large_image } : undefined,
                 buttons: ["Listening Together", "Download"],
                 metadata: {
-                    button_urls: [`https://zenkord.kdns.fr/listen?sc_id=${p.playing.id}`, "https://zenkord.kdns.fr"],
+                    button_urls: [`https://zenkord.kdns.fr/listen?sc_id=${p.playing.id}`, "https://xeen28170-rgb.github.io/zenkord-site"],
                 },
                 flags: 1,
             }

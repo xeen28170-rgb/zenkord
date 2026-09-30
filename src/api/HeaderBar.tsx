@@ -353,7 +353,7 @@ function ZenkordTitleLink() {
             type="button"
             title="Ouvrir Zenkord.fr"
             aria-label="Ouvrir Zenkord.fr"
-            onClick={() => VencordNative.native.openExternal("https://zenkord.kdns.fr")}
+            onClick={() => VencordNative.native.openExternal("https://xeen28170-rgb.github.io/zenkord-site")}
         >
             <ZenkordBrandIcon />
             <span>Zenkord</span>

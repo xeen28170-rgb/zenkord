@@ -3,7 +3,7 @@
     
     const discordUrl = "https://discord.gg/X3GpHjUNBd";
     const githubUrl = "https://github.com/xeen28170-rgb/zenkord";
-    const webUrl = "https://zenkord.kdns.fr";
+    const webUrl = "https://xeen28170-rgb.github.io/zenkord-site";
 </script>
 
 <div class="social-links">

@@ -3,7 +3,7 @@
 ## Community
 
 - **Discord**: https://discord.gg/X3GpHjUNBd — for general discussion, questions, and community support
-- **Website**: https://zenkord.kdns.fr
+- **Website**: https://xeen28170-rgb.github.io/zenkord-site
 
 ## Issues
 

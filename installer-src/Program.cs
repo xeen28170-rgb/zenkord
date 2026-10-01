@@ -772,19 +772,36 @@ namespace ZenkordInstaller
         {
             var patcher = Path.Combine(_distDir, "patcher.js").Replace("\\", "/");
             File.WriteAllText(Path.Combine(appDir, "package.json"), "{\"name\":\"zenkord\",\"main\":\"index.js\"}");
-            File.WriteAllText(Path.Combine(appDir, "index.js"),
-                $"// Zenkord Injector\n" +
-                $"\"use strict\";\n" +
-                $"const fs = require('fs');\n" +
-                $"const path = require('path');\n" +
-                $"const primary = {JsonEscape(patcher)};\n" +
-                $"const exeDir = path.dirname(process.execPath);\n" +
-                $"const fallback = path.join(exeDir, 'resources', 'dist', 'patcher.js');\n" +
-                $"const fallback2 = path.join(exeDir, 'dist', 'patcher.js');\n" +
-                $"const patcherPath = fs.existsSync(primary) ? primary : fs.existsSync(fallback) ? fallback : fallback2;\n" +
-                $"if (!fs.existsSync(patcherPath)) throw new Error('[Zenkord] patcher.js not found. Expected at: ' + primary);\n" +
-                $"require(patcherPath);\n"
-            );
+            // If patcher.js is missing (update in progress, files removed), wait up to 5 s,
+            // then start Discord without Zenkord instead of crashing with an error dialog.
+            File.WriteAllText(Path.Combine(appDir, "index.js"), $$"""
+                // Zenkord Injector
+                "use strict";
+                const fs = require("fs");
+                const path = require("path");
+                const primary = {{JsonEscape(patcher)}};
+                const exeDir = path.dirname(process.execPath);
+                const candidates = [primary, path.join(exeDir, "resources", "dist", "patcher.js"), path.join(exeDir, "dist", "patcher.js")];
+                const find = () => candidates.find(p => fs.existsSync(p));
+
+                let patcherPath = find();
+                for (let i = 0; !patcherPath && i < 20; i++) {
+                    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+                    patcherPath = find();
+                }
+
+                if (patcherPath) {
+                    require(patcherPath);
+                } else {
+                    console.error("[Zenkord] patcher.js not found, starting Discord without Zenkord. Expected at: " + primary);
+                    const asar = path.join(__dirname, "..", "_app.asar");
+                    const pkg = require(path.join(asar, "package.json"));
+                    require("electron").app.setAppPath(asar);
+                    require.main.filename = path.join(asar, pkg.main);
+                    require(path.join(asar, pkg.main));
+                }
+
+                """);
         }
 
         private string JsonEscape(string s)

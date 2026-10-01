@@ -684,7 +684,7 @@ async function _doRpc() {
                 metadata: {
                     button_urls: [
                         `https://zenkord.kdns.fr/watch?v=${p.video.id}`,
-                        "https://zenkord.kdns.fr",
+                        "https://xeen28170-rgb.github.io/zenkord-site",
                     ],
                 },
                 flags: 1,

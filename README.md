@@ -7,7 +7,7 @@
 
 [![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/X3GpHjUNBd)
 [![License](https://img.shields.io/badge/license-GPL%20v3-a855f7)](./LICENSE)
-[![Website](https://img.shields.io/badge/website-zenkord.kdns.fr-5865F2?logo=googlechrome&logoColor=white)](https://zenkord.kdns.fr)
+[![Website](https://img.shields.io/badge/website-zenkord-5865F2?logo=googlechrome&logoColor=white)](https://xeen28170-rgb.github.io/zenkord-site)
 [![Sponsor Graph](https://img.shields.io/badge/sponsor-graph-a855f7?logo=github)](https://github.com/Vendicated/github-sponsor-graph)
 
 [![Version](https://img.shields.io/github/v/release/xeen28170-rgb/zenkord?style=for-the-badge&logo=github&color=22c55e)](https://github.com/xeen28170-rgb/zenkord/releases/latest)

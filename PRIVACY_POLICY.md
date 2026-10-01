@@ -1,7 +1,7 @@
 # Privacy Policy
 
 The full, always up to date privacy policy of the website is published at
-**https://zenkord.kdns.fr/confidentialite.html**.
+**https://xeen28170-rgb.github.io/zenkord-site/confidentialite.html**.
 
 ## Zenkord (the software)
 

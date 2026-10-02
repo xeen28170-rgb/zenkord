@@ -243,7 +243,12 @@ namespace ZenkordInstaller
             return await Task.Run(() => {
                 var appDir = System.IO.Path.Combine(path, "app");
                 var pkgPath = System.IO.Path.Combine(appDir, "package.json");
-                return Directory.Exists(appDir) && File.Exists(pkgPath) && File.ReadAllText(pkgPath).Contains("\"zenkord\"");
+                if (Directory.Exists(appDir) && File.Exists(pkgPath) && File.ReadAllText(pkgPath).Contains("\"zenkord\"")) return true;
+
+                // Réinjection automatique après une mise à jour de Discord (patchWin32Updater) :
+                // app.asar est alors un dossier dont index.js charge Zenkord.
+                var repatchIndex = System.IO.Path.Combine(path, "app.asar", "index.js");
+                return File.Exists(repatchIndex) && File.ReadAllText(repatchIndex).Contains("Zenkord", StringComparison.OrdinalIgnoreCase);
             });
         }
 
@@ -553,6 +558,13 @@ namespace ZenkordInstaller
                 try { Directory.Delete(appDir, true); } catch { }
             }
 
+            // app.asar peut être un dossier (réinjection automatique après une mise à jour de Discord) :
+            // on le retire, le vrai Discord est restauré depuis _app.asar juste après.
+            if (Directory.Exists(appAsar))
+            {
+                Directory.Delete(appAsar, true);
+            }
+
             if (File.Exists(appAsar) && new FileInfo(appAsar).Length < 2_000_000)
             {
                 File.Delete(appAsar);
@@ -721,6 +733,11 @@ namespace ZenkordInstaller
                 {
                     Directory.Delete(appDir, true);
                 }
+            }
+
+            if (Directory.Exists(appAsar))
+            {
+                Directory.Delete(appAsar, true);
             }
 
             SetProgress(50, "Restoring original files...");

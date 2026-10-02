@@ -40,7 +40,8 @@ let VERSION = PackageJSON.version;
 try {
     execSync("git describe --exact-match --tags HEAD", { encoding: "utf-8", stdio: "ignore" });
 } catch {
-    VERSION += "-dev";
+    // Les mises à jour automatiques (build.yml) reprennent le numéro de la dernière version publiée
+    if (!process.env.ZENKORD_EXACT_VERSION) VERSION += "-dev";
 }
 export { VERSION };
 // https://reproducible-builds.org/docs/source-date-epoch/

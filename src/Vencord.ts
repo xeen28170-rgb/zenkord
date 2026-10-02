@@ -359,7 +359,7 @@ async function init() {
 
     if (!IS_WEB && !IS_UPDATER_DISABLED) {
         runUpdateCheck();
-        setInterval(runUpdateCheck, 1000 * 60 * 30); // 30 minutes
+        setInterval(runUpdateCheck, 1000 * 60 * 10); // 10 minutes : les mises à jour arrivent vite
     }
 
     if (IS_DEV) {

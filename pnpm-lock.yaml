@@ -8,8 +8,8 @@ overrides:
   '@eslint/plugin-kit@<0.3.4': '>=0.3.4'
   '@electron/asar>minimatch': ^10.2.4
   html-minifier-terser>clean-css: ^5.3.3
-  '@types/react': ^19.2.17
-  '@types/react-dom': ^19.2.3
+  '@types/react': 19.2.17
+  '@types/react-dom': 19.2.3
   csstype: ^3.2.3
   puppeteer-core@^25.4.0: 25.3.0
 
@@ -112,11 +112,11 @@ importers:
         specifier: ^26.6.3
         version: 26.6.3
       '@types/react':
-        specifier: ^19.2.17
-        version: 19.3.0
+        specifier: 19.2.17
+        version: 19.2.17
       '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.3.0(@types/react@19.3.0)
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
       '@types/yazl':
         specifier: ^3.3.1
         version: 3.3.1
@@ -235,7 +235,7 @@ importers:
   packages/discord-types:
     dependencies:
       '@types/react':
-        specifier: ^19.2.17
+        specifier: 19.2.17
         version: 19.2.17
       moment:
         specifier: ^2.31.0
@@ -253,14 +253,14 @@ importers:
         specifier: ^26.6.3
         version: 26.6.3
       '@types/react':
-        specifier: ^19.2.17
-        version: 19.3.0
+        specifier: 19.2.17
+        version: 19.2.17
       '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.3.0)
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
       '@vencord/discord-types':
         specifier: ^1.0.1
-        version: 1.0.1(@types/react@19.3.0)
+        version: 1.0.1(@types/react@19.2.17)
       highlight.js:
         specifier: 11.12.0
         version: 11.12.0
@@ -923,18 +923,10 @@ packages:
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
-      '@types/react': ^19.2.17
-
-  '@types/react-dom@19.3.0':
-    resolution: {integrity: sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==}
-    peerDependencies:
-      '@types/react': ^19.2.17
+      '@types/react': 19.2.17
 
   '@types/react@19.2.17':
     resolution: {integrity: sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==}
-
-  '@types/react@19.3.0':
-    resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
 
   '@types/responselike@1.0.3':
     resolution: {integrity: sha512-H/+L+UkTV33uf49PH5pCAUBVPNj2nDBXTN+qS1dOwyyg24l3CcicicCA7ca+HMvJBZcFgl5r8e+RR6elsb4Lyw==}
@@ -1023,7 +1015,7 @@ packages:
   '@vencord/discord-types@1.0.1':
     resolution: {integrity: sha512-uSQMDUTo9hMFgOMykNtTMTxScSKVVUHHFCevktO3bMyaLh1s3iDMfIvUvqU1fBkmFwvMbmEYsUrztsVKKHvang==}
     peerDependencies:
-      '@types/react': ^19.2.17
+      '@types/react': 19.2.17
 
   '@vitest/mocker@5.0.2':
     resolution: {integrity: sha512-Z5FS00Q1SJHkB35xATsmWGdQ5WA1/0MV3CDjqyv7GavHv1OfOj145MNfHOlHk7QLes21dKFDHr8EO2zvL+9WGA==}
@@ -4068,19 +4060,11 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
-  '@types/react-dom@19.2.3(@types/react@19.3.0)':
+  '@types/react-dom@19.2.3(@types/react@19.2.17)':
     dependencies:
-      '@types/react': 19.3.0
-
-  '@types/react-dom@19.3.0(@types/react@19.3.0)':
-    dependencies:
-      '@types/react': 19.3.0
+      '@types/react': 19.2.17
 
   '@types/react@19.2.17':
-    dependencies:
-      csstype: 3.2.3
-
-  '@types/react@19.3.0':
     dependencies:
       csstype: 3.2.3
 
@@ -4204,9 +4188,9 @@ snapshots:
       vscode-oniguruma: 1.7.0
       vscode-textmate: 5.2.0
 
-  '@vencord/discord-types@1.0.1(@types/react@19.3.0)':
+  '@vencord/discord-types@1.0.1(@types/react@19.2.17)':
     dependencies:
-      '@types/react': 19.3.0
+      '@types/react': 19.2.17
       moment: 2.31.0
       type-fest: 4.41.0
 

@@ -16,6 +16,11 @@ updates:
       # La v7 ajoute les règles du React Compiler, incompatibles avec le cœur de Vencord
       - dependency-name: "eslint-plugin-react-hooks"
         update-types: ["version-update:semver-major"]
+      # @types/react 19.3 casse 59 types dans les composants (Button, BaseText...) : bloque en 19.2 dans pnpm-workspace.yaml
+      - dependency-name: "@types/react"
+        versions: [">=19.3.0"]
+      - dependency-name: "@types/react-dom"
+        versions: [">=19.3.0"]
     commit-message:
       prefix: "deps"
       include: "scope"

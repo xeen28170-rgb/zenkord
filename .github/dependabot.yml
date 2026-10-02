@@ -10,6 +10,12 @@ updates:
       time: "09:00"
       timezone: "Europe/Paris"
     open-pull-requests-limit: 10
+    ignore:
+      # Paquet interne au dépôt (packages/discord-types) : la version publiée sur npm est en retard et casse la compilation
+      - dependency-name: "@vencord/discord-types"
+      # La v7 ajoute les règles du React Compiler, incompatibles avec le cœur de Vencord
+      - dependency-name: "eslint-plugin-react-hooks"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "deps"
       include: "scope"

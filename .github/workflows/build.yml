@@ -13,6 +13,12 @@ env:
 permissions:
     contents: write
 
+# Une seule compilation à la fois : un nouveau push annule la précédente,
+# pour que la publication finale soit toujours celle du dernier commit.
+concurrency:
+    group: build-latest
+    cancel-in-progress: true
+
 jobs:
     Build:
         name: Build Zenkord
@@ -20,6 +26,8 @@ jobs:
 
         steps:
             - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
 
             - uses: pnpm/action-setup@v6
 
@@ -32,8 +40,19 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            - name: Use the latest release number
+              shell: bash
+              run: |
+                  tag=$(git tag --list "v[0-9]*" --sort=-v:refname | grep -v -- "-" | head -1)
+                  if [ -n "$tag" ]; then
+                      npm pkg set version="${tag#v}"
+                      echo "Version: ${tag#v}"
+                  fi
+
             - name: Build standalone
               run: pnpm buildStandalone
+              env:
+                  ZENKORD_EXACT_VERSION: "1"
 
             - name: Generate plugin lists
               run: |
@@ -134,6 +153,8 @@ jobs:
 
         steps:
             - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
 
             - uses: pnpm/action-setup@v6
 
@@ -146,8 +167,19 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            - name: Use the latest release number
+              shell: bash
+              run: |
+                  tag=$(git tag --list "v[0-9]*" --sort=-v:refname | grep -v -- "-" | head -1)
+                  if [ -n "$tag" ]; then
+                      npm pkg set version="${tag#v}"
+                      echo "Version: ${tag#v}"
+                  fi
+
             - name: Build standalone
               run: pnpm buildStandalone
+              env:
+                  ZENKORD_EXACT_VERSION: "1"
 
             - name: Generate plugin lists
               run: |

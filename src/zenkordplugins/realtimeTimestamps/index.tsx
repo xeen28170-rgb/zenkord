@@ -6,7 +6,7 @@
 
 import { definePluginSettings } from "@api/Settings";
 import definePlugin, { OptionType } from "@utils/types";
-import { moment, useEffect, useReducer } from "@webpack/common";
+import { moment } from "@webpack/common";
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
@@ -32,43 +32,6 @@ const settings = definePluginSettings({
     },
 });
 
-// ─── Global tick ─ one shared setInterval for all timestamp components ───────
-// This avoids creating one setInterval per rendered message (50+ messages = 50+
-// intervals → 50+ React re-renders per second → Discord freeze).
-
-const tickListeners = new Set<() => void>();
-let globalTickInterval: ReturnType<typeof setInterval> | null = null;
-
-function startGlobalTick() {
-    if (globalTickInterval !== null) return;
-    globalTickInterval = setInterval(() => {
-        for (const fn of tickListeners) {
-            try { fn(); } catch { }
-        }
-    }, 1000);
-}
-
-function stopGlobalTick() {
-    if (tickListeners.size > 0) return;
-    if (globalTickInterval !== null) {
-        clearInterval(globalTickInterval);
-        globalTickInterval = null;
-    }
-}
-
-// ─── React Hook (only valid inside a React component) ────────────────────────
-function useSecondTick() {
-    const [, tick] = useReducer((n: number) => n + 1, 0);
-    useEffect(() => {
-        tickListeners.add(tick);
-        startGlobalTick();
-        return () => {
-            tickListeners.delete(tick);
-            stopGlobalTick();
-        };
-    }, []);
-}
-
 // ─── Timestamp render functions ──────────────────────────────────────────────
 // REAL FIX (confirmed against the stock CustomTimestamps plugin, which patches
 // these exact same Vencord match sites and works fine): the previous "BUGFIX"
@@ -82,17 +45,15 @@ function useSecondTick() {
 // detection via .match(...) and the edited-message a11y label — calling
 // .match() on a React element throws "e.match is not a function" on every
 // message render. Returning a plain string (like CustomTimestamps does) keeps
-// those other internal usages intact while still updating live every second
-// via useSecondTick().
+// those other internal usages intact. A message's time never changes, so there
+// is no need to re-render it every second.
 
 function RenderCozyText(date: Date) {
-    useSecondTick();
     const fmt = settings.store.format ?? "HH:mm:ss";
     return moment(date).format(fmt);
 }
 
 function RenderCompactText(date: Date) {
-    useSecondTick();
     const fmt = settings.store.format ?? "HH:mm:ss";
     return settings.store.showInCompact
         ? moment(date).format(fmt)
@@ -100,7 +61,6 @@ function RenderCompactText(date: Date) {
 }
 
 function RenderTooltipText(date: Date) {
-    useSecondTick();
     const fmt = settings.store.format ?? "HH:mm:ss";
     return settings.store.showInTooltip
         ? moment(date).format(`dddd, MMMM D, YYYY [at] ${fmt}`)
@@ -128,14 +88,6 @@ export default definePlugin({
     },
     renderTooltip(date: Date) {
         return RenderTooltipText(date);
-    },
-
-    stop() {
-        tickListeners.clear();
-        if (globalTickInterval !== null) {
-            clearInterval(globalTickInterval);
-            globalTickInterval = null;
-        }
     },
 
     patches: [

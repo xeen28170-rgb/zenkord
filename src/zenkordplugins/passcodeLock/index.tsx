@@ -57,7 +57,6 @@ const Gifs = {
     EDIT_INTRO: "https://i.imgur.com/NrhmZym.gif",
     EDIT_ACTION: "https://i.imgur.com/VL5UV1X.gif",
 };
-Object.values(Gifs).forEach(src => fetch(src).catch(() => {})); // preload
 
 const LOCK_ICON_PATH = "M19,10h-1V7.69c0-3.16-2.57-5.72-5.72-5.72H11.8C8.66,1.97,6,4.62,6,7.77V10H5c-0.55,0-1,0.45-1,1v8c0,1.65,1.35,3,3,3h10c1.65,0,3-1.35,3-3v-8C20,10.45,19.55,10,19,10z M8,7.77c0-2.06,1.74-3.8,3.8-3.8h0.48c2.05,0,3.72,1.67,3.72,3.72V10H8V7.77z M13.06,16.06c-0.02,0.02-0.04,0.04-0.06,0.05V18c0,0.55-0.45,1-1,1s-1-0.45-1-1v-1.89c-0.02-0.01-0.04-0.03-0.06-0.05C10.66,15.78,10.5,15.4,10.5,15c0-0.1,0.01-0.2,0.03-0.29c0.02-0.1,0.05-0.19,0.08-0.28c0.04-0.09,0.09-0.18,0.14-0.26c0.06-0.09,0.12-0.16,0.19-0.23c0.35-0.35,0.86-0.51,1.35-0.41c0.1,0.02,0.19,0.05,0.28,0.08c0.09,0.04,0.18,0.09,0.26,0.14c0.08,0.06,0.16,0.12,0.23,0.19s0.13,0.14,0.19,0.23c0.05,0.08,0.1,0.17,0.13,0.26c0.04,0.09,0.07,0.18,0.09,0.28C13.49,14.8,13.5,14.9,13.5,15C13.5,15.4,13.34,15.77,13.06,16.06z";
 
@@ -761,6 +760,7 @@ export default definePlugin({
     settingsAboutComponent: SettingsAboutComponent,
 
     async start() {
+        Object.values(Gifs).forEach(src => fetch(src).catch(() => {}));
         await loadData();
 
         // Manual recovery hatch, always available from devtools console.

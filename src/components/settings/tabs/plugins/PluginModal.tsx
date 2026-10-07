@@ -81,14 +81,25 @@ export default function PluginModal({ plugin, onRestartNeeded, onClose, transiti
         openWarningModal(plugin, onRestartNeeded);
     }
 
-    const debouncedOnChange = useMemo(() => debounce((key: string, newValue: any) => {
-        const opt = plugin.settings?.def[key];
-        if (!opt || opt.type === OptionType.CUSTOM) return;
+    const debouncedOnChange = useMemo(() => {
+        const debouncedByKey = new Map<string, (newValue: any) => void>();
 
-        pluginSettings[key] = newValue;
+        return (key: string, newValue: any) => {
+            let save = debouncedByKey.get(key);
+            if (!save) {
+                save = debounce((value: any) => {
+                    const opt = plugin.settings?.def[key];
+                    if (!opt || opt.type === OptionType.CUSTOM) return;
 
-        if (opt.restartNeeded) onRestartNeeded(key);
-    }), [onRestartNeeded, plugin.settings?.def, pluginSettings]);
+                    pluginSettings[key] = value;
+
+                    if (opt.restartNeeded) onRestartNeeded(key);
+                });
+                debouncedByKey.set(key, save);
+            }
+            save(newValue);
+        };
+    }, [onRestartNeeded, plugin.settings?.def, pluginSettings]);
 
     function renderSettings() {
         const { settings } = plugin;

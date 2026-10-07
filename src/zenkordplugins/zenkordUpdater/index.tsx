@@ -4,8 +4,17 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import definePlugin from "@utils/types";
+import { definePluginSettings } from "@api/Settings";
+import definePlugin, { OptionType } from "@utils/types";
 declare const BUILD_TIMESTAMP: number;
+
+const settings = definePluginSettings({
+    installWithoutAsking: {
+        type: OptionType.BOOLEAN,
+        description: "Install updates at startup without asking. When off, a banner asks you first.",
+        default: false,
+    },
+});
 
 let startupTimer: ReturnType<typeof setTimeout> | null = null;
 let updatePromise: Promise<void> | null = null;
@@ -44,7 +53,7 @@ async function installUpdateAtStartup() {
         // to install. No banner is shown: startup remains the update boundary.
         const updateResult = await ipc.getUpdates?.();
         if (!updateResult?.ok) throw new Error(updateResult?.error?.message ?? "Update check failed");
-        if (!updateResult.value?.length) return;
+        if (!updateResult.value?.length || !settings.store.installWithoutAsking) return;
 
         console.log("[ZenkordUpdater] Installing verified update silently.");
         const installResult = await ipc.rebuild();
@@ -66,8 +75,9 @@ function runStartupUpdate() {
 export default definePlugin({
     name: "ZenkordUpdater",
     enabledByDefault: true,
-    description: "Silently installs verified Zenkord updates when the client starts.",
+    description: "Checks for signed Zenkord updates at startup and installs them once you agree.",
     authors: [{ name: "Zenkord", id: 0n }],
+    settings,
 
     start() {
         startupTimer = setTimeout(() => void runStartupUpdate(), 5_000);

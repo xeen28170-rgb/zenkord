@@ -33,22 +33,25 @@ const settings = definePluginSettings({
 const STORAGE_PREFIX = "zenkord_lastseen_";
 
 const lastWrittenCache = new Map<string, number>();
+const pendingWrites = new Map<string, number>();
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushLastSeen() {
+    if (flushTimer) clearTimeout(flushTimer);
+    flushTimer = null;
+    if (!pendingWrites.size) return;
+    const entries = [...pendingWrites].map(([userId, ts]): [string, number] => [STORAGE_PREFIX + userId, ts]);
+    pendingWrites.clear();
+    DataStore.setMany(entries).catch(() => {});
+}
 
 function setLastSeen(userId: string, ts: number) {
-    try {
-        const lastWritten = lastWrittenCache.get(userId) || 0;
-        // Only write to IndexedDB if it's been more than 60 seconds since the last write for this user
-        if (ts - lastWritten > 60000) {
-            lastWrittenCache.set(userId, ts);
-            DataStore.set(STORAGE_PREFIX + userId, ts).catch(() => {});
-
-            if (userId === "1462402007305425039" || userId === "1097178374809587835") {
-                console.log(`[LastSeen DEBUG] SAVED TIMESTAMP FOR ${userId} ->`, new Date(ts).toLocaleTimeString());
-            }
-        }
-    } catch (e) {
-        console.error(`[LastSeen ERROR] Failed to save timestamp for ${userId}:`, e);
-    }
+    const lastWritten = lastWrittenCache.get(userId) || 0;
+    // Only write to IndexedDB if it's been more than 60 seconds since the last write for this user
+    if (ts - lastWritten <= 60000) return;
+    lastWrittenCache.set(userId, ts);
+    pendingWrites.set(userId, ts);
+    flushTimer ??= setTimeout(flushLastSeen, 30_000);
 }
 
 // ── Format ─────────────────────────────────────────────────────────────────
@@ -86,10 +89,6 @@ function handlePresenceEntry(entry: any) {
         entry?.user_id;
 
     if (!userId) return;
-
-    if (userId === "1462402007305425039") {
-        console.log("[LastSeen DEBUG] Received presence entry for lonely with wifi!", entry);
-    }
 
     // Whatever the event is (online, idle, dnd, offline), it means Discord
     // just sent us an update about them. So they were "seen" right now!
@@ -149,6 +148,8 @@ function LastSeenText({ userId }: { userId: string; }) {
 
     // Fetch data from DataStore asynchronously when component mounts or status changes
     React.useEffect(() => {
+        const pending = pendingWrites.get(userId);
+        if (pending) return void setLastSeenState(pending);
         DataStore.get(STORAGE_PREFIX + userId).then((val: any) => {
             if (val) setLastSeenState(Number(val));
         }).catch(() => {});
@@ -232,6 +233,7 @@ export default definePlugin({
         FluxDispatcher.unsubscribe("VOICE_STATE_UPDATES", onVoiceStateUpdates);
         FluxDispatcher.unsubscribe("TYPING_START", onTypingStart);
         FluxDispatcher.unsubscribe("MESSAGE_REACTION_ADD", onReactionAdd);
+        flushLastSeen();
     },
 
     renderLastSeen({ userId, isSideBar }: { userId: string; isSideBar: boolean; }) {

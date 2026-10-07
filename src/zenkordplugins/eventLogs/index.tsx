@@ -108,12 +108,12 @@ function scheduleFlush() {
             try { fn(); } catch { }
         }
 
-        // Debounce actual localStorage save to 5 seconds to avoid freezing
+        // Debounce actual localStorage save to avoid freezing, and run it when the browser is idle
         if (saveTimer === null) {
             saveTimer = setTimeout(() => {
                 saveTimer = null;
-                savePersistLogs();
-            }, 5000);
+                requestIdleCallback(savePersistLogs, { timeout: 10_000 });
+            }, 30_000);
         }
     }, 500);
 }
@@ -862,6 +862,7 @@ export default definePlugin({
         unsubs.forEach(fn => fn()); unsubs = [];
         // Save before clearing — cancel the debounce timer then immediately persist
         if (flushTimer !== null) { clearTimeout(flushTimer); flushTimer = null; }
+        if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
         savePersistLogs();
         logs = []; msgCache.clear(); prevVS.clear(); updateListeners.clear();
         isLoadingMessages = false;

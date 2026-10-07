@@ -115,7 +115,7 @@ export async function resolvePluginName(base, dirent) {
             throw new Error(`Invalid plugin ${fullPath}: could not resolve entry point`);
         })();
 
-    return PluginDefinitionNameMatcher.exec(content)?.[3]
+    return PluginDefinitionNameMatcher.exec(definePluginBody(content))?.[3]
         ?? (() => {
             throw new Error(`Invalid plugin ${fullPath}: must contain definePlugin call with simple string name property as first property`);
         })();
@@ -139,13 +139,18 @@ export const makeAllPackagesExternalPlugin = {
     }
 };
 
-const PluginDefinitionNameMatcher = /definePlugin\(\{\s*(["'])?name\1:\s*(["'`])(.+?)\2/;
+const PluginDefinitionNameMatcher = /^ {4}(["'])?name\1:\s*(["'`])(.+?)\2/m;
+
+function definePluginBody(content) {
+    const start = content.indexOf("definePlugin({");
+    return start === -1 ? "" : content.slice(start);
+}
 
 const PluginMetaFieldRe = {
     description: /description:\s*(["'`])(.+?)\1/,
     dependencies: /dependencies:\s*\[([^\]]+)\]/,
-    required: /required:\s*(true|false)/,
-    enabledByDefault: /enabledByDefault:\s*(true|false)/,
+    required: /^ {4}required:\s*(true|false)/m,
+    enabledByDefault: /^ {4}enabledByDefault:\s*(true|false)/m,
     startAt: /startAt:\s*StartAt\.(\w+)/,
     hasPatches: /patches:\s*\[/,
     hasCommands: /commands:\s*\[/,
@@ -163,12 +168,13 @@ const PluginMetaFieldRe = {
 };
 
 function extractPluginMeta(content) {
-    const name = content.match(PluginDefinitionNameMatcher)?.[3] || "";
+    const body = definePluginBody(content);
+    const name = body.match(PluginDefinitionNameMatcher)?.[3] || "";
     const description = content.match(PluginMetaFieldRe.description)?.[2] || "";
     const depsMatch = content.match(PluginMetaFieldRe.dependencies);
     const dependencies = depsMatch ? depsMatch[1].split(",").map(s => s.trim().replace(/["'`]/g, "")).filter(Boolean) : [];
-    const required = content.match(PluginMetaFieldRe.required)?.[1] === "true";
-    const enabledByDefault = content.match(PluginMetaFieldRe.enabledByDefault)?.[1] === "true";
+    const required = body.match(PluginMetaFieldRe.required)?.[1] === "true";
+    const enabledByDefault = body.match(PluginMetaFieldRe.enabledByDefault)?.[1] === "true";
     const startAt = content.match(PluginMetaFieldRe.startAt)?.[1] || "WebpackReady";
 
     return { name, description, dependencies, required, enabledByDefault, startAt };

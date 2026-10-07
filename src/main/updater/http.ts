@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { createHash } from "node:crypto";
+import { createHash, createPublicKey, verify } from "node:crypto";
 import { dirname, join, normalize } from "node:path";
 
 import { fetchBuffer, fetchJson } from "@main/utils/http";
@@ -15,10 +15,12 @@ import { unzipSync } from "fflate";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "original-fs";
 
 import { serializeErrors } from "./common";
+import { UPDATE_PUBLIC_KEY } from "./updatePublicKey";
 
 const RELEASE_API = "https://api.github.com/repos/xeen28170-rgb/zenkord/releases/tags/latest";
 const ZIP_FILE = "zenkord-dist.zip";
 const MANIFEST_FILE = "update-manifest.json";
+const SIGNATURE_FILE = `${MANIFEST_FILE}.sig`;
 
 interface BuildInfo {
     buildTime: number;
@@ -59,16 +61,32 @@ async function fetchWithTimeout<T>(request: (signal: AbortSignal) => Promise<T>,
     }
 }
 
+function verifyManifestSignature(manifest: Buffer, signature: Buffer) {
+    if (!UPDATE_PUBLIC_KEY) throw new Error("Update signing key is not configured");
+
+    const isValid = verify(null, manifest, createPublicKey(UPDATE_PUBLIC_KEY), Buffer.from(signature.toString("utf8").trim(), "base64"));
+    if (!isValid) throw new Error("Invalid update signature");
+}
+
 async function discoverUpdate(): Promise<PendingUpdate | null> {
     const release = await fetchWithTimeout(signal => fetchJson<any>(RELEASE_API, { headers, signal }));
     const assets: any[] = release?.assets ?? [];
     const zipAsset = assets.find(asset => asset.name === ZIP_FILE);
     const manifestAsset = assets.find(asset => asset.name === MANIFEST_FILE);
+    const signatureAsset = assets.find(asset => asset.name === SIGNATURE_FILE);
     if (!zipAsset?.browser_download_url || !manifestAsset?.browser_download_url) return null;
+    if (!signatureAsset?.browser_download_url) throw new Error("Update manifest is not signed");
 
-    const manifest = await fetchWithTimeout(signal => fetchJson<UpdateManifest>(manifestAsset.browser_download_url, {
+    const downloadAsset = (url: string) => fetchWithTimeout(signal => fetchBuffer(url, {
         headers: { ...headers, Accept: "application/octet-stream" }, signal
     }));
+    const [manifestBytes, signature] = await Promise.all([
+        downloadAsset(manifestAsset.browser_download_url),
+        downloadAsset(signatureAsset.browser_download_url)
+    ]);
+    verifyManifestSignature(manifestBytes, signature);
+
+    const manifest: UpdateManifest = JSON.parse(manifestBytes.toString("utf8"));
     if (manifest.asset !== ZIP_FILE || !Number.isFinite(manifest.buildTime) || !/^[a-f\d]{64}$/i.test(manifest.sha256))
         throw new Error("Invalid update manifest");
 

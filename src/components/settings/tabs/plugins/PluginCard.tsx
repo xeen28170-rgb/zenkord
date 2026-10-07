@@ -7,6 +7,7 @@
 import { t } from "@api/i18n";
 import { showNotice } from "@api/Notices";
 import { isPluginEnabled, pluginRequiresRestart, startDependenciesRecursive, startPlugin, stopPlugin } from "@api/PluginManager";
+import { getForcedPluginState } from "@api/Settings";
 import { Button } from "@components/Button";
 import { HeadingPrimary } from "@components/Heading";
 import { CogWheel } from "@components/Icons";
@@ -219,6 +220,8 @@ function _PluginCardInner({ plugin, disabled, onRestartNeeded, onMouseEnter, onM
     );
 
     const tooltip = t("Show Tutorial");
+    const forcedState = plugin.required ? null : getForcedPluginState(plugin);
+    const lockedReason = forcedState && t(forcedState === "on" ? "Zenkord keeps this plugin enabled." : "Zenkord keeps this plugin disabled.");
     const isZenkord = !PluginMeta[plugin.name]?.userPlugin;
     const iconType = isZenkord ? "zenkord" : "other";
 
@@ -267,6 +270,7 @@ function _PluginCardInner({ plugin, disabled, onRestartNeeded, onMouseEnter, onM
             customIcon={PluginIcon}
             sourceBadge={hasTutorial ? sourceBadge : undefined}
             tooltip={tooltip}
+            lockedReason={lockedReason || undefined}
             description={plugin.description}
             isNew={isNew}
             enabled={isEnabled()}

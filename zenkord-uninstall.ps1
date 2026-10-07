@@ -48,11 +48,16 @@ foreach ($ch in $channels) {
         if (-not $isZenkord) { continue }
         $found = $true
 
-        Write-Host "  [$ch.Name] Desinstallation en cours..." -ForegroundColor Yellow
+        if (-not (Test-Path $backup)) {
+            Write-Host "  [$($ch.Name)] Backup _app.asar introuvable, desinstallation annulee pour ne pas casser Discord." -ForegroundColor Red
+            continue
+        }
+
+        Write-Host "  [$($ch.Name)] Desinstallation en cours..." -ForegroundColor Yellow
 
         # Tuer Discord
         try {
-            taskkill /F /IM "$($ch.Name).exe" /T 2>$null
+            taskkill /F /IM "$($ch.Dir).exe" /T 2>$null
             taskkill /F /IM "Update.exe" /T 2>$null
             Start-Sleep -Milliseconds 500
         } catch { }
@@ -70,13 +75,13 @@ foreach ($ch in $channels) {
             Write-Host "    [ATTENTION] Backup _app.asar introuvable." -ForegroundColor Yellow
         }
 
-        Write-Host "  [$ch.Name] Desinjection reussie !" -ForegroundColor Green
+        Write-Host "  [$($ch.Name)] Desinjection reussie !" -ForegroundColor Green
 
         # Relancer Discord
         try {
             $updateExe = Join-Path $base "Update.exe"
             if (Test-Path $updateExe) {
-                Start-Process -FilePath $updateExe -ArgumentList "--processStart $($ch.Name).exe"
+                Start-Process -FilePath $updateExe -ArgumentList "--processStart $($ch.Dir).exe"
                 Write-Host "    Discord redemarre." -ForegroundColor Gray
             }
         } catch { }

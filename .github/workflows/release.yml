@@ -92,6 +92,11 @@ jobs:
           }
           $manifest | ConvertTo-Json | Set-Content "update-manifest.json" -Encoding utf8NoBOM
 
+      - name: Sign update manifest
+        run: node scripts/signUpdateManifest.mjs update-manifest.json
+        env:
+          ZENKORD_UPDATE_PRIVATE_KEY: ${{ secrets.ZENKORD_UPDATE_PRIVATE_KEY }}
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v6
         with:
@@ -115,6 +120,7 @@ jobs:
           files: |
             zenkord-dist.zip
             update-manifest.json
+            update-manifest.json.sig
             release/installer/Zenkord-Installer.exe
             release/extension/Zenkord-Chrome.zip
             release/extension/Zenkord-Firefox.zip

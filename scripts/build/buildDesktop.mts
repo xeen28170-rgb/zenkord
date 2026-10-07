@@ -43,7 +43,7 @@ const NodeCommonOpts: BuildOptions = {
     },
     define: {
         IS_DEV: JSON.stringify(isDev),
-        EQUIBOP_GIT_HASH: JSON.stringify(gitHash)
+        Zenkord_GIT_HASH: JSON.stringify(gitHash)
     }
 };
 

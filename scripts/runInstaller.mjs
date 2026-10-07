@@ -57,7 +57,7 @@ function cleanIncompleteDiscordUpdates() {
 }
 
 // ── Nettoyage des injections précédentes ────────────────────────────────────
-function cleanOldZenkord(isUninstall) {
+function cleanOldZenkord() {
     console.log("[Zenkord] Cleaning previous installations...");
     const platform = process.platform;
     const candidates = [];
@@ -126,7 +126,7 @@ function cleanOldZenkord(isUninstall) {
                 }
             }
 
-            if (!isUninstall && existsSync(backupPath)) {
+            if (existsSync(backupPath)) {
                 if (existsSync(appAsarPath)) {
                     rmSync(appAsarPath, { recursive: true, force: true });
                 }
@@ -322,7 +322,7 @@ const isUninstall = args.includes("--uninstall");
 const isRepair = args.includes("--repair");
 
 cleanIncompleteDiscordUpdates();
-cleanOldZenkord(isUninstall);
+cleanOldZenkord();
 
 if (isUninstall) {
     process.exit(0);

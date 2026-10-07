@@ -166,8 +166,7 @@ async function callUser(userId: string): Promise<void> {
     // Ouvrir le DM et naviguer vers lui d'abord
     await ChannelActions.openPrivateChannel(userId);
     await new Promise(r => setTimeout(r, 400));
-    // @ts-ignore
-    const channelId = await getDMChannelId(userId);
+    const channelId = ChannelStore.getDMFromUserId(userId);
 
     // Méthode 1 : startCall via CallActionsLazy
     try {
@@ -959,16 +958,16 @@ export default definePlugin({
 
         let debounceTimer: any = null;
         this._observer = new MutationObserver(() => {
-            if (document.visibilityState === "hidden") return;
-            const existing = document.getElementById("nai-nav-injected");
-            if (existing) {
-                const navItem = findShopNavItem();
-                if (navItem && existing.nextSibling === navItem && navItem.style.display === "none") {
-                    return;
+            if (debounceTimer || document.visibilityState === "hidden") return;
+            debounceTimer = setTimeout(() => {
+                debounceTimer = null;
+                const existing = document.getElementById("nai-nav-injected");
+                if (existing) {
+                    const navItem = findShopNavItem();
+                    if (navItem && existing.nextSibling === navItem && navItem.style.display === "none") return;
                 }
-            }
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => inject(), 80);
+                inject();
+            }, 80);
         });
         if (document.visibilityState !== "hidden") {
             this._observer.observe(document.body, { childList: true, subtree: true });

@@ -200,7 +200,7 @@ function showGreenUpdateBanner() {
             const downloaded = await update();
             if (!downloaded) throw new Error("Download failed");
             setStatus("Téléchargée et vérifiée. Installation…");
-            await rebuild();
+            if (!await rebuild()) throw new Error("Install failed");
             setStatus("Mise à jour installée ! Redémarrage dans 3 secondes…");
             setTimeout(() => relaunch(), 3_000);
         } catch (e) {

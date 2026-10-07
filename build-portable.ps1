@@ -20,7 +20,7 @@ try {
     $pkg = Get-Content (Join-Path $DISCORD "resources\app\package.json") -Raw | ConvertFrom-Json
     $DISCORD_VER = $pkg.version
 } catch {
-    $DISCORD_VER = Split-Path $DISCORD -Leaf -replace "^app-", ""
+    $DISCORD_VER = (Split-Path $DISCORD -Leaf) -replace "^app-", ""
 }
 Write-Host "Version : $DISCORD_VER" -ForegroundColor DarkGray
 

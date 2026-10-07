@@ -37,6 +37,12 @@ const FORCE_DISABLED_DEFAULT_PLUGIN_KEYS = new Set([
     "voicechatutilities"
 ]);
 
+export function getForcedPluginState(plugin: { name: string; enabledByDefault?: boolean; }) {
+    if (IS_REPORTER) return null;
+    if (FORCE_DISABLED_DEFAULT_PLUGIN_KEYS.has(plugin.name.toLowerCase())) return "off";
+    return plugin.enabledByDefault ? "on" : null;
+}
+
 export interface SettingsPluginUiElement {
     enabled: boolean;
     // TODO

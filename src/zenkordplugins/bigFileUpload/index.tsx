@@ -338,11 +338,10 @@ const settings = definePluginSettings({
     customUploaderHeaders?: Record<string, string>;
 }>();
 
-function sendTextToChat(text: string) {
+function sendTextToChat(text: string, channelId: string) {
     if (settings.store.autoSend === "No") {
         insertTextIntoChatInputBox(text);
     } else {
-        const channelId = SelectedChannelStore.getChannelId();
         sendMessage(channelId, { content: text });
     }
 }
@@ -365,7 +364,7 @@ async function uploadFileToGofile(file: File, channelId: string) {
         const server = serverData.data.servers[Math.floor(Math.random() * serverData.data.servers.length)].name;
         const uploadResult = await Native.uploadFileToGofileNative(`https://${server}.gofile.io/uploadFile`, arrayBuffer, file.name, file.type);
         if (uploadResult.status === "ok") {
-            setTimeout(() => sendTextToChat(`${uploadResult.data.downloadPage} `), 10);
+            setTimeout(() => sendTextToChat(`${uploadResult.data.downloadPage} `, channelId), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
         } else {
             sendBotMessage(channelId, { content: "Error uploading file. Check the console for more info." });
@@ -386,7 +385,7 @@ async function uploadFileToCatbox(file: File, channelId: string) {
             let finalUrl = uploadResult;
             const videoExts = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv"];
             if (fileSizeMB >= 150 && videoExts.some(ext => finalUrl.endsWith(ext))) finalUrl = `https://embeds.video/${finalUrl}`;
-            setTimeout(() => sendTextToChat(`${finalUrl} `), 10);
+            setTimeout(() => sendTextToChat(`${finalUrl} `, channelId), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
         } else {
             sendBotMessage(channelId, { content: "Error uploading file. Check the console for more info." });
@@ -407,7 +406,7 @@ async function uploadFileToLitterbox(file: File, channelId: string) {
             let finalUrl = uploadResult;
             const videoExts = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv"];
             if (fileSizeMB >= 150 && videoExts.some(ext => finalUrl.endsWith(ext))) finalUrl = `https://embeds.video/${finalUrl}`;
-            setTimeout(() => sendTextToChat(`${finalUrl}`), 10);
+            setTimeout(() => sendTextToChat(`${finalUrl}`, channelId), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
         } else {
             sendBotMessage(channelId, { content: "Error uploading file. Check the console for more info." });
@@ -432,7 +431,7 @@ async function uploadFileCustom(file: File, channelId: string) {
             let finalUrlModified = finalUrl;
             const videoExts = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".flv", ".wmv", ".m4v", ".mpg", ".mpeg", ".3gp", ".ogv"];
             if (videoExts.some(ext => finalUrlModified.endsWith(ext))) finalUrlModified = `https://embeds.video/${finalUrlModified}`;
-            setTimeout(() => sendTextToChat(`${finalUrlModified} `), 10);
+            setTimeout(() => sendTextToChat(`${finalUrlModified} `, channelId), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
         } else {
             sendBotMessage(channelId, { content: "Error uploading file. Check the console for more info." });

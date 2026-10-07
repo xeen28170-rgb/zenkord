@@ -5,6 +5,7 @@
  */
 
 import { Logger } from "./Logger";
+import { relaunch } from "./native";
 import { IpcRes } from "./types";
 
 export const UpdateLogger = /* #__PURE__ */ new Logger("Updater", "white");
@@ -59,10 +60,9 @@ export async function maybePromptToUpdate(confirmMessage: string, checkForDev = 
 
     try {
         const outdated = await checkForUpdates();
-        if (outdated) {
-            // Mise à jour automatique sans confirmation
+        if (outdated && confirm(confirmMessage)) {
             const downloaded = await update();
-            if (downloaded) await rebuild();
+            if (downloaded && await rebuild()) relaunch();
         }
     } catch (err) {
         UpdateLogger.error(err);

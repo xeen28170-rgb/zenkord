@@ -76,8 +76,8 @@ export function SettingsSection({ tag: Tag = "div", name, description, error, in
         <Tag className={cl("section")}>
             <div className={classes(cl("content"), inlineSetting && cl("inline"))}>
                 <div className={cl("label")}>
-                    {name && <BaseText className={cl("title")} size="md" weight="medium" style={{ color: "#fff" }}>{tPlugin(wordsToTitle(wordsFromCamel(name)))}</BaseText>}
-                    {description && <BaseText className={cl("description")} size="sm" style={{ color: "#fff" }}>{renderDescription(tPlugin(description))}</BaseText>}
+                    {name && <BaseText className={cl("title")} size="md" weight="medium">{tPlugin(wordsToTitle(wordsFromCamel(name)))}</BaseText>}
+                    {description && <BaseText className={cl("description")} size="sm">{renderDescription(tPlugin(description))}</BaseText>}
                 </div>
                 {children}
             </div>

@@ -166,8 +166,7 @@ async function callUser(userId: string): Promise<void> {
     // Ouvrir le DM et naviguer vers lui d'abord
     await ChannelActions.openPrivateChannel(userId);
     await new Promise(r => setTimeout(r, 400));
-    // @ts-ignore
-    const channelId = await getDMChannelId(userId);
+    const channelId = ChannelStore.getDMFromUserId(userId);
 
     // Méthode 1 : startCall via CallActionsLazy
     try {

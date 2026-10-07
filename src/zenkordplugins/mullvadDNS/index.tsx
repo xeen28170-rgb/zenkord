@@ -11,7 +11,7 @@ import { showToast, Toasts } from "@webpack/common";
 
 import type { DnsFamily, ResolveProtocol, ShieldResolveResult } from "./native";
 
-const Native = VencordNative.pluginHelpers.TeteDeMull as PluginNative<typeof import("./native")>;
+const Native = VencordNative.pluginHelpers.SecureDNS as PluginNative<typeof import("./native")>;
 
 enum ProfileDns {
     DNS = "dns",
@@ -446,7 +446,7 @@ export default definePlugin({
                     lesStats.successfulResolutions++;
                     devLog(LogLevel.INFO, `Rewrote ${u.hostname} -> ${ip}`);
                     pousseToast(`Resolved ${u.hostname} via secure DNS.`, Toasts.Type.SUCCESS);
-                    return origFetch.call(window, newInp, init);
+                    return await origFetch.call(window, newInp, init);
                 } catch (err) {
                     lesStats.failedResolutions++;
                     devLog(LogLevel.ERROR, `Fetch patch error: ${err}`);

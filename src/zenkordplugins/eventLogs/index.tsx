@@ -862,6 +862,7 @@ export default definePlugin({
         unsubs.forEach(fn => fn()); unsubs = [];
         // Save before clearing — cancel the debounce timer then immediately persist
         if (flushTimer !== null) { clearTimeout(flushTimer); flushTimer = null; }
+        if (saveTimer !== null) { clearTimeout(saveTimer); saveTimer = null; }
         savePersistLogs();
         logs = []; msgCache.clear(); prevVS.clear(); updateListeners.clear();
         isLoadingMessages = false;

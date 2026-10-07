@@ -36,6 +36,7 @@ interface Props {
     isNew?: boolean;
     sourceBadge?: ReactNode;
     tooltip?: string;
+    lockedReason?: string;
     onMouseEnter?: MouseEventHandler<HTMLDivElement>;
     onMouseLeave?: MouseEventHandler<HTMLDivElement>;
 
@@ -46,7 +47,7 @@ interface Props {
     customIcon?: ComponentType<any>;
 }
 
-export function AddonCard({ disabled, isNew, sourceBadge, tooltip, name, infoButton, footer, author, enabled, setEnabled, description, onMouseEnter, onMouseLeave, iconType, customIcon: CustomIcon }: Props) {
+export function AddonCard({ disabled, isNew, sourceBadge, tooltip, lockedReason, name, infoButton, footer, author, enabled, setEnabled, description, onMouseEnter, onMouseLeave, iconType, customIcon: CustomIcon }: Props) {
     const titleRef = useRef<HTMLDivElement>(null);
     const titleContainerRef = useRef<HTMLDivElement>(null);
 
@@ -113,7 +114,15 @@ export function AddonCard({ disabled, isNew, sourceBadge, tooltip, name, infoBut
                     )}
                     {infoButton}
                 </div>
-                {setEnabled.toString() !== "() => {}" && (
+                {lockedReason ? (
+                    <Tooltip text={lockedReason}>
+                        {({ onMouseEnter, onMouseLeave }) => (
+                            <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+                                <Switch checked={enabled} onChange={setEnabled} disabled />
+                            </div>
+                        )}
+                    </Tooltip>
+                ) : setEnabled.toString() !== "() => {}" && (
                     <Switch
                         checked={enabled}
                         onChange={setEnabled}

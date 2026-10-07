@@ -4,9 +4,18 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example 1.24.0"
+        required: true
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.version && format('v{0}', inputs.version) || github.ref_name }}
+  ZENKORD_EXACT_VERSION: "1"
 
 jobs:
   build:
@@ -32,7 +41,8 @@ jobs:
       - name: Sync version with tag
         shell: pwsh
         run: |
-          $tag = "$env:GITHUB_REF" -replace '^refs/tags/v', ''
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') { Write-Error "Invalid version $env:RELEASE_TAG"; exit 1 }
+          $tag = $env:RELEASE_TAG -replace '^v', ''
           $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
           $pkg.version = $tag
           $pkg | ConvertTo-Json -Depth 10 | Set-Content "package.json"
@@ -116,6 +126,8 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
             zenkord-dist.zip
@@ -151,7 +163,7 @@ jobs:
 
       - name: Sync version with tag
         run: |
-          tag="${GITHUB_REF#refs/tags/v}"
+          tag="${RELEASE_TAG#v}"
           node -e "
             const pkg = require('./package.json');
             pkg.version = '$tag';
@@ -181,7 +193,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${GITHUB_REF#refs/tags/}"
+          tag="$RELEASE_TAG"
           found=0
           for f in release/*.dmg release/*.zip release/*.app.tar.gz; do
             if [ -f "$f" ]; then

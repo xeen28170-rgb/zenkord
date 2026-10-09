@@ -145,8 +145,8 @@ export function buildLexicon(raw: RawDictionaries): Lexicon {
     const frExtra = new Set<string>();
     frList.forEach(([w, c], i) => {
         if (frBig.has(w) || i >= 40000) return;
-        const accented = accentFix.get(w);
-        if (accented && (frCount.get(accented) ?? 0) >= 2 * c) return;
+        const accentedTotal = (groups.get(w) ?? []).reduce((sum, v) => sum + (frCount.get(v) ?? 0), 0);
+        if (accentedTotal >= 2 * c) return;
         if (splitElision(w, isFrBigOrAccent)) return;
         frExtra.add(w);
     });
@@ -207,7 +207,8 @@ const FR_TABLE = new Map(Object.entries({
     jetais: "j'étais", jespere: "j'espère", jattends: "j'attends", jaurais: "j'aurais", jirai: "j'irai",
     tinquiete: "t'inquiète", tinquietes: "t'inquiète", voila: "voilà", ya: "y'a", yen: "y'en",
     peutetre: "peut-être", quelquun: "quelqu'un", quelqun: "quelqu'un", ouai: "ouais", aujourdhi: "aujourd'hui",
-    parceque: "parce que", tro: "trop", tinquiet: "t'inquiète",
+    parceque: "parce que", tro: "trop", tinquiet: "t'inquiète", biensur: "bien sûr", ny: "n'y", koi: "quoi",
+    pa: "pas", aprés: "après", trés: "très", dejà: "déjà", déja: "déjà",
     // insults: corrected, never censored
     connar: "connard", conar: "connard", batar: "bâtard", batars: "bâtards", encul: "enculé", salo: "salaud",
     connase: "connasse", boufon: "bouffon", boufons: "bouffons", merd: "merde", putin: "putain", ptain: "putain",
@@ -233,7 +234,7 @@ const EN_TABLE = new Map(Object.entries({
 }));
 
 const SUBJECTS_A = new Set(["il", "elle", "on", "qui", "y", "ça", "ca", "cela"]);
-const A_ALWAYS_NEXT = new Set(["demain", "bientôt", "bientot", "côté", "cote", "coté", "partir", "travers", "propos"]);
+const A_ALWAYS_NEXT = new Set(["demain", "bientôt", "bientot", "côté", "cote", "coté", "partir", "travers", "propos", "part"]);
 const A_PERSON_NEXT = new Set(["toi", "moi", "vous", "tous", "toutes", "eux", "lui", "plus"]);
 const A_PREV = new Set([
     "est", "suis", "es", "sommes", "êtes", "etes", "sont", "vais", "vas", "va", "allons", "allez", "vont",
@@ -262,7 +263,25 @@ const PARTICIPLES = new Set([
     "capté", "tué", "frappé", "appelé", "envoyé", "demandé", "donné", "montré", "parlé", "écrit", "ecrit", "répondu",
     "repondu", "aidé", "bloqué", "invité", "quitté", "laissé", "menti", "raconté", "expliqué", "promis", "offert",
     "volé", "cassé", "battu", "soûlé", "saoulé", "soulé", "énervé", "enervé", "gavé", "sauvé", "lâché", "ghosté",
-    "ignoré", "insulté", "banni", "encore", "déjà", "deja", "toujours", "jamais", "pas", "rien", "trop", "grave",
+    "ignoré", "insulté", "banni", "ban", "kick", "ghost", "spam", "ping", "mute", "block", "report", "tag", "add",
+    "troll", "carry", "unfollow", "encore", "déjà", "deja", "toujours", "jamais", "pas", "rien", "trop", "grave",
+]);
+/** adverbs of PARTICIPLES: they fit "m'a pas", not "l'a pas" */
+const PARTICIPLE_ADVERBS = new Set(["encore", "déjà", "deja", "toujours", "jamais", "pas", "rien", "trop", "grave"]);
+/** "il la fait" / "il la dit" are also valid present tenses */
+const PRESENT_TOO = new Set(["fait", "dit"]);
+/** "le serveur et mort" → "est": states that cannot be joined by "et" to a noun */
+const STATE_ADJECTIVES = new Set([
+    "mort", "morte", "malade", "chaud", "chaude", "fou", "folle", "nul", "nulle", "con", "conne", "beau", "belle",
+    "bête", "bete", "gentil", "gentille", "parti", "partie", "prêt", "pret", "prête", "prete", "cassé", "casse",
+    "fini", "finie", "down", "plein", "pleine", "vide", "ouvert", "ouverte", "fermé", "ferme", "cher", "chère",
+    "chere", "nickel", "cool", "génial", "genial", "naze", "claqué", "claque", "éclaté", "eclate", "bugué", "bugue",
+]);
+const DETERMINERS = new Set(["le", "la", "les", "mon", "ton", "son", "ma", "ta", "sa", "ce", "cet", "cette", "notre", "votre", "leur", "mes", "tes", "ses", "nos", "vos", "leurs"]);
+const NOT_PLURAL_AFTER_NUMBER = new Set([
+    "mille", "cent", "janvier", "février", "fevrier", "mars", "avril", "mai", "juin", "juillet", "août", "aout",
+    "septembre", "octobre", "novembre", "décembre", "decembre", "lundi", "mardi", "mercredi", "jeudi", "vendredi",
+    "samedi", "dimanche", "h", "min", "fois", "euros", "ans",
 ]);
 /** auxiliary "avoir": "j'ai manger" → "j'ai mangé" */
 const AVOIR = new Set(["ai", "as", "a", "avons", "avez", "ont", "j'ai", "t'as", "m'a", "t'a", "l'a", "n'a", "y'a"]);
@@ -272,6 +291,15 @@ const MODALS = new Set([
     "pouvons", "pouvez", "peuvent", "dois", "doit", "devons", "devez", "doivent", "faut", "aller", "pouvoir",
     "vouloir", "devoir", "sais", "sait",
 ]);
+const GRAMMAR_FR = new Set([
+    "sur", "sous", "pour", "par", "avec", "dans", "chez", "vers", "entre", "et", "ou", "mais", "donc", "car", "que",
+    "qui", "quand", "comme", "avant", "après", "apres", "depuis", "pendant", "contre", "selon", "dont", "le", "la",
+    "les", "un", "une", "des", "du", "au", "aux", "mon", "ton", "son", "notre", "votre", "leur", "plus", "moins",
+]);
+/** "être" as auxiliary of motion/reflexive verbs */
+const ETRE_AUX = new Set(["suis", "es", "est", "sommes", "êtes", "etes", "sont", "étais", "etais", "était", "etait", "étaient", "etaient"]);
+/** prepositions always followed by an infinitive */
+const INFINITIVE_PREV = new Set(["pour", "sans"]);
 const ADVERBS = new Set(["pas", "jamais", "déjà", "deja", "trop", "bien", "mal", "encore", "toujours", "rien", "tout", "plus", "vraiment", "grave"]);
 const SA_NEXT = new Set([
     "va", "fait", "marche", "passe", "sert", "suffit", "dépend", "depend", "arrive", "me", "m", "te", "t", "nous",
@@ -342,14 +370,60 @@ const JE_TU_FORM = new Map(Object.entries({
     prend: "prends", comprend: "comprends", apprend: "apprends", vient: "viens", revient: "reviens", tient: "tiens",
     part: "pars", sort: "sors", dort: "dors", ment: "mens", finit: "finis", choisit: "choisis", connait: "connais",
     connaît: "connais", croit: "crois", boit: "bois", écrit: "écris", ecrit: "écris", vit: "vis", rit: "ris",
-    peu: "peux", veu: "veux", sai: "sais", fai: "fais", vien: "viens",
+    peu: "peux", veu: "veux", sai: "sais", fai: "fais", vien: "viens", par: "pars", cour: "cours", sor: "sors",
+    dor: "dors", voi: "vois", croi: "crois", doi: "dois", pren: "prends",
 }));
 const IL_FORM = new Map(Object.entries({
     peux: "peut", veux: "veut", sais: "sait", fais: "fait", dis: "dit", vois: "voit", dois: "doit", mets: "met",
     prends: "prend", comprends: "comprend", apprends: "apprend", viens: "vient", reviens: "revient", tiens: "tient",
     pars: "part", sors: "sort", dors: "dort", finis: "finit", crois: "croit", connais: "connaît", vas: "va",
     vais: "va", as: "a", es: "est", peu: "peut", vien: "vient", fai: "fait", sai: "sait", veu: "veut",
+    par: "part", cour: "court", sor: "sort", dor: "dort", voi: "voit", croi: "croit", doi: "doit", pren: "prend",
 }));
+/** "mes je sais" → "mais je sais": a possessive is always followed by a noun */
+const MAIS_NEXT = new Set([
+    "je", "j", "tu", "t", "il", "elle", "on", "nous", "vous", "ils", "elles", "c", "ça", "ca", "non", "oui", "pas",
+    "bon", "bref", "après", "apres", "sinon", "moi", "toi", "lui", "eux", "y", "si", "quand", "comme", "pourquoi",
+    "comment", "franchement", "sérieux", "serieux", "genre", "bon", "ouais", "vas", "t'es", "c'est", "j'ai", "t'as",
+]);
+/** plural determiners that are never pronouns: "mes ami" → "mes amis" */
+const PLURAL_DET = new Set(["des", "mes", "nos", "vos", "plusieurs", "quelques"]);
+const NOT_NOUNS = new Set([
+    "fois", "gens", "pas", "plus", "moins", "tout", "tous", "très", "trop", "bien", "mal", "fait", "dit", "mis", "pris",
+    "autre", "même", "meme", "seul", "seule", "petit", "grand", "ce", "de", "du", "en", "y", "un", "une",
+]);
+/** "il c'est trompé" → "il s'est trompé" */
+const SEST_SUBJECTS = new Set(["il", "elle", "on"]);
+/** "il ni a" → "il n'y a" */
+const NY_PREV = new Set(["il", "j", "je", "on", "tu", "t", "elle", "ça", "ca", "y", "nous", "vous"]);
+const NY_NEXT = new Set(["a", "avait", "aura", "aurait", "vais", "vas", "va", "allons", "allez", "vont", "est", "suis", "pense", "penses", "arrive", "arrives", "arrivons", "crois", "connais", "comprends", "peux", "peut", "touche", "touchez"]);
+/** "je pense quelle est" → "qu'elle": a verb after it, a conjunction-like word before */
+const QUELLE_PREV = new Set([
+    "pense", "penses", "crois", "sais", "sait", "dit", "dis", "veux", "veut", "faut", "parce", "alors", "pendant",
+    "avant", "pour", "bien", "sûr", "espère", "espere", "trouve", "vois", "voit", "comme", "dès", "des", "tant",
+    "ainsi", "sauf", "lorsque", "même", "meme", "jure", "dirait",
+]);
+const QUELLE_NEXT = new Set([
+    "est", "a", "va", "fait", "peut", "veut", "sait", "me", "te", "se", "le", "la", "les", "lui", "y", "en", "ne", "n",
+    "m", "t", "s", "l", "part", "vient", "dit", "avait", "était", "etait", "sera", "soit", "aille", "ait", "puisse",
+    "fasse", "vienne", "aime", "joue", "parle", "mange", "pense", "dort",
+]);
+
+/** "il, par exemple" / "il par la suite": "par" is a preposition there */
+const PAR_PREPOSITION_NEXT = new Set(["exemple", "contre", "ailleurs", "hasard", "moments", "conséquent", "consequent"]);
+/** "qui ce passe" → "qui se passe": a pronoun is what comes before a reflexive verb */
+const SE_PREV = new Set(["qui", "il", "elle", "on", "ils", "elles", "ça", "ca", "cela", "ne", "n"]);
+const SE_IRREGULAR = new Set([
+    "fait", "font", "dit", "disent", "met", "mettent", "sent", "sentent", "sert", "servent", "voit", "voient", "rend",
+    "rendent", "prend", "prennent", "tient", "tiennent", "vient", "viennent", "sont", "sera", "serait", "seront",
+    "peut", "peuvent", "doit", "doivent", "bat", "battent", "tait", "plaint", "sent", "souvient", "souviennent",
+    "fera", "ferait", "fini", "finit", "finissent", "barre", "casse", "calme",
+]);
+/** "se que tu dis" → "ce que tu dis", "se soir" → "ce soir" */
+const CE_NEXT = new Set([
+    "que", "qu", "qui", "soir", "matin", "midi", "weekend", "week", "moment", "jour", "mois", "mec", "gars", "truc",
+    "jeu", "serveur", "message", "type", "film", "genre", "délire", "delire",
+]);
 
 const DUPLICABLE_TYPOS = new Set([
     "le", "les", "de", "des", "du", "un", "une", "et", "que", "qui", "je", "tu", "il", "elle", "ils", "en", "est",
@@ -400,6 +474,8 @@ class LineCorrector {
     /** indexes of word tokens in `toks` */
     private words: number[];
     private plain: boolean[];
+    /** words as typed, before any correction */
+    private typed: string[];
     private leans: Array<Lang | "both" | null>;
     lineLang: Lang | null;
 
@@ -409,6 +485,7 @@ class LineCorrector {
         this.words = [];
         this.toks.forEach((tok, i) => { if (tok.word) this.words.push(i); });
         this.plain = this.words.map(i => this.isPlain(i));
+        this.typed = this.words.map(i => this.toks[i].t.toLowerCase());
         this.leans = this.words.map(i => this.lean(this.toks[i].t.toLowerCase()));
 
         let fr = 0, en = 0;
@@ -674,11 +751,20 @@ class LineCorrector {
 
             switch (w) {
                 case "a": {
+                    // "c'est a dire" → "c'est-à-dire"
+                    if (next === "dire" && (prev === "c'est" || (prev === "est" && this.prev(k - 1, true) === "c"))) {
+                        this.toks[this.words[k] - 1].t = "-";
+                        this.toks[this.words[k] + 1].t = "-";
+                        this.set(k, "à");
+                        break;
+                    }
                     if (prev && SUBJECTS_A.has(prev)) break;
                     const next2 = k + 2 < n && next ? this.next(k + 1) : null;
                     if (next && A_ALWAYS_NEXT.has(next)) this.set(k, "à");
                     else if (next === "cause" && next2 && ["de", "d", "du", "qu", "que"].includes(next2)) this.set(k, "à");
                     else if (next === "peu" && next2 && ["près", "pres"].includes(next2)) this.set(k, "à");
+                    else if (next === "chaque" && next2 === "fois") this.set(k, "à");
+                    else if (next && ["tous", "toutes", "vous", "toi"].includes(next) && this.endsClause(k + 1)) this.set(k, "à");
                     else if (next && A_PERSON_NEXT.has(next) && (k === 0 || (prev && (A_PREV.has(prev) || GREETINGS_TO_ALL.has(prev))))) {
                         if (next !== "plus" || k === 0) this.set(k, "à");
                     } else if (prev && A_PREV.has(prev) && next && !["été", "ete", "eu", "fait", "dit", "pas"].includes(next)) this.set(k, "à");
@@ -700,18 +786,31 @@ class LineCorrector {
                     // "on est ou la" → "on est où là"
                     else if (prev && ETRE.has(prev) && (next === "la" || next === "là") && this.endsClause(k + 1)) this.set(k, "où");
                     break;
-                case "la":
-                    // "il est la" / "c'est par la" / "il était la hier" → "là"
-                    if (prev && (LA_PREV.has(prev) || ETRE.has(prev)) && (this.endsClause(k) || (next && LA_NEXT.has(next)))) this.set(k, "là");
+                case "là":
                     break;
                 case "ta":
                     // "ta vu" → "t'as vu", "il ta dit" → "il t'a dit"
-                    if (next && PARTICIPLES.has(next)) this.set(k, prev && SUBJECTS_A.has(prev) ? "t'a" : "t'as");
+                    if (next && (PARTICIPLES.has(next) || this.isErParticiple(next))) this.set(k, prev && SUBJECTS_A.has(prev) ? "t'a" : "t'as");
                     else if (next && ["raison", "tort"].includes(next) && this.isSentenceStart(k)) this.set(k, "t'as");
                     break;
                 case "ma":
-                    if (next && PARTICIPLES.has(next)) this.set(k, "m'a");
+                    if (next && (PARTICIPLES.has(next) || this.isErParticiple(next))) this.set(k, "m'a");
                     break;
+                case "les":
+                case "la": {
+                    // "je les vu" → "je l'ai vu", "tu la vu" → "tu l'as vu", "il la traité" → "il l'a traité"
+                    // "il est la" / "c'est par la" / "il était la hier" → "là"
+                    if (w === "la" && prev && (LA_PREV.has(prev) || ETRE.has(prev)) && (this.endsClause(k) || (next && LA_NEXT.has(next)))) {
+                        this.set(k, "là");
+                        break;
+                    }
+                    if (!prev || !next || PRESENT_TOO.has(next) || PARTICIPLE_ADVERBS.has(next)) break;
+                    if (!PARTICIPLES.has(next) && !this.isErParticiple(next)) break;
+                    if (prev === "je") this.set(k, "l'ai");
+                    else if (w === "la" && prev === "tu") this.set(k, "l'as");
+                    else if (w === "la" && SUBJECTS_A.has(prev)) this.set(k, "l'a");
+                    break;
+                }
                 case "lai":
                 case "lavait":
                 case "lavais":
@@ -730,7 +829,8 @@ class LineCorrector {
                     break;
                 }
                 case "sa":
-                    if ((next && SA_NEXT.has(next)) || (this.endsClause(k) && k > 0)) this.set(k, "ça");
+                    if (prev === "part" && k >= 2 && ["à", "a"].includes(this.prev(k - 1) ?? "")) this.set(k, "ça");
+                    else if ((next && SA_NEXT.has(next)) || (this.endsClause(k) && k > 0)) this.set(k, "ça");
                     else if (k === 0 && this.endsClause(k)) this.set(k, "ça");
                     break;
                 case "ces":
@@ -746,6 +846,9 @@ class LineCorrector {
                     if (next && TAS_NEXT.has(next) && !(prev && TAS_PREV_PILE.has(prev))) this.set(k, "t'as");
                     break;
                 case "et":
+                    const nounSubject = prev && k >= 2 && DETERMINERS.has(this.prev(k - 1) ?? "") && !this.lex!.frBig.has(prev + "e") && next && STATE_ADJECTIVES.has(next)
+                        && (this.endsClause(k + 1) || ["ou", "de", "la", "là"].includes(this.next(k + 1) ?? ""));
+                    if (nounSubject) { this.set(k, "est"); break; }
                     if (prevApos === "c" || (prev && ["il", "elle", "on"].includes(prev) && next && (EST_NEXT.has(next) || next === "ou" || (prev === "on" && next === "la")))) {
                         if (prevApos === "c" && this.sepBefore(k) === " ") this.joinWithApostrophe(k - 1, "c", "est");
                         else this.set(k, "est");
@@ -756,6 +859,83 @@ class LineCorrector {
                     break;
                 case "on":
                     if (prev === "ils" || prev === "elles") this.set(k, "ont");
+                    break;
+                case "ce": {
+                    // "ce qui ce passe" → "ce qui se passe", "ça ce voit" → "ça se voit"
+                    if (prev && SE_PREV.has(prev) && next && this.isVerbForm(next)) this.set(k, "se");
+                    break;
+                }
+                case "se":
+                    if (next && CE_NEXT.has(next) && !(prev && SE_PREV.has(prev))) this.set(k, "ce");
+                    else if (next === "n" && k + 2 < n && this.low(k + 2) === "est") this.set(k, "ce");
+                    break;
+                case "mes":
+                    // "mes je sais pas" → "mais je sais pas"
+                    if (next && MAIS_NEXT.has(next) && !(this.toks[this.words[k + 1]]?.t ?? "").match(/^\p{Lu}/u)) this.set(k, "mais");
+                    break;
+                case "tout":
+                    // "tout les jours" → "tous les jours"
+                    if (next === "les" || next === "ces" || next === "mes" || next === "tes" || next === "ses" || next === "nos" || next === "vos" || next === "leurs") this.set(k, "tous");
+                    break;
+                case "tous":
+                    // "tous le monde" → "tout le monde"
+                    if (next === "le" && k + 2 < n && ["monde", "temps", "reste"].includes(this.low(k + 2))) this.set(k, "tout");
+                    else if (next === "la" && k + 2 < n && ["journée", "journee", "nuit", "semaine", "soirée", "soiree"].includes(this.low(k + 2))) this.set(k, "toute");
+                    break;
+                case "même":
+                case "meme":
+                    // "comme même" → "quand même"
+                    if (prev === "comme" && this.sepBefore(k) === " ") { this.set(k - 1, "quand"); this.set(k, "même"); }
+                    break;
+                case "été":
+                    if (prev && ["il", "elle", "on", "c", "ça", "ca", "cela"].includes(prev) && this.toks[this.words[k]].t.toLowerCase() === "été" && this.typedWithoutAccent(k)) this.set(k, "était");
+                    else if (prev && ["je", "j", "tu", "t"].includes(prev) && this.typedWithoutAccent(k)) this.set(k, "étais");
+                    break;
+                case "fait":
+                    // "fait gaffe" → "fais gaffe" (imperative)
+                    if (this.isSentenceStart(k) && next && ["gaffe", "attention", "vite", "genre"].includes(next)) this.set(k, "fais");
+                    else if (this.isSentenceStart(k) && next === "pas" && k + 2 < n && ["genre", "le", "la", "ça", "ca", "ton", "ta", "chier", "gaffe"].includes(this.low(k + 2)) && this.low(k + 2) !== "chier") this.set(k, "fais");
+                    break;
+                case "faite":
+                    // "en faite" / "au faite" → "en fait" / "au fait"
+                    if (prev === "en" || prev === "au") this.set(k, "fait");
+                    break;
+                case "c'est":
+                case "cest":
+                    if (prev && SEST_SUBJECTS.has(prev)) this.set(k, "s'est");
+                    break;
+                case "c":
+                    // "on c vu" → "on s'est vu", "c bon" → "c'est bon"
+                    if (prev && SEST_SUBJECTS.has(prev) && next && PARTICIPLES.has(next)) this.set(k, "s'est");
+                    else if (prev && SEST_SUBJECTS.has(prev) && /^['’]$/.test(this.sepBefore(k + 1)) && this.low(k + 1) === "est") this.set(k, "s");
+                    else if (next && CEST_NEXT.has(next) && this.sepBefore(k + 1) === " " && this.toks[this.words[k]].t === w) this.set(k, "c'est");
+                    break;
+                case "ni":
+                    if (prev && NY_PREV.has(prev) && next && NY_NEXT.has(next)) this.set(k, "n'y");
+                    break;
+                case "na":
+                    if (next && ["pas", "plus", "jamais", "rien", "que", "qu", "personne"].includes(next)) this.set(k, "n'a");
+                    break;
+                case "quelle":
+                    if (prev && QUELLE_PREV.has(prev) && next && QUELLE_NEXT.has(next)) this.set(k, "qu'elle");
+                    break;
+                case "oubli":
+                    if (next && ["pas", "jamais", "surtout"].includes(next)) this.set(k, "oublie");
+                    break;
+                case "peu":
+                case "peut":
+                    // "peut etre demain" → "peut-être demain" (but "il peut être là")
+                    // only where no subject can come before: "le prix peut être élevé" stays
+                    if (next && ["etre", "être"].includes(next) && this.sepBefore(k + 1) === " "
+                        && (this.isSentenceStart(k) || (prev && ["mais", "et", "ou", "bah", "ben", "oui", "non", "ouais", "alors", "donc", "ok", "sinon", "bon", "enfin"].includes(prev)))) {
+                        this.toks[this.words[k + 1] - 1].t = "-";
+                        this.set(k, "peut");
+                        this.set(k + 1, "être");
+                    }
+                    break;
+                case "bien":
+                    // "bien sur" at the end or start → "bien sûr"
+                    if (next === "sur" && (this.isSentenceStart(k) || this.endsClause(k + 1))) this.set(k + 1, "sûr");
                     break;
                 case "sur":
                     if (prevApos && SUR_PREV.has(prevApos) && (this.endsClause(k) || (next && SUR_NEXT_OK.has(next)))) this.set(k, "sûr");
@@ -783,9 +963,58 @@ class LineCorrector {
             if (k === 0 && next && this.sepBefore(1) === " " && ((next === "tu" && INVERSION_TU.has(w)) || (next === "vous" && INVERSION_VOUS.has(w))))
                 this.toks[this.words[1] - 1].t = "-";
 
+            this.accentFromGrammar(k);
             this.conjugation(k);
             this.participleOrInfinitive(k);
+            this.pluralAfterDeterminer(k);
+            this.pluralAfterNumber(k);
         }
+    }
+
+    private accentFromGrammar(k: number) {
+        const lex = this.lex!;
+        const w = this.low(k);
+        if (!this.plain[k] || stripAccents(w) !== w || lex.frValid.has(w) || lex.accentFix.has(w) || this.neighbourLang(k) === "en") return;
+        const options = lex.accentGroups.get(w);
+        if (!options || options.length < 2) return;
+        let j = k - 1;
+        while (j >= 0 && CLITICS.has(this.low(j)) && /^\s+$|^['’]$/.test(this.sepBefore(j + 1))) j--;
+        const subj = j >= 0 && /^\s+$|^['’]$/.test(this.sepBefore(j + 1)) ? this.low(j) : null;
+        if (!subj) return;
+        let pick: string[] = [];
+        if (["je", "j", "tu", "il", "elle", "on", "ils", "elles"].includes(subj)) pick = options.filter(o => !o.endsWith("é") && !o.endsWith("ée"));
+        else if (AVOIR.has(subj) || ETRE_AUX.has(subj)) pick = options.filter(o => o.endsWith("é"));
+        if (pick.length === 1) this.set(k, pick[0]);
+    }
+
+    /** "2 minute" → "2 minutes" */
+    private pluralAfterNumber(k: number) {
+        const lex = this.lex!;
+        const w = this.low(k);
+        const sep = this.sepBefore(k);
+        const m = /(?:^|\s)(\d+) $/.exec(sep);
+        if (!m || Number(m[1]) < 2 || Number(m[1]) >= 1000 || !this.plain[k] || w.length < 3 || /[sxz]$/.test(w) || NOT_PLURAL_AFTER_NUMBER.has(w)) return;
+        if (this.typed[k] !== this.toks[this.words[k]].t || PREPOSITIONS.has(w) || NOT_NOUNS.has(w) || GRAMMAR_FR.has(w)) return;
+        // "le 2 mai", "du 3 au 5": dates
+        if (k > 0 && /^\s*$/.test(sep.slice(0, m.index)) && ["le", "la", "du", "au", "les", "version", "page", "saison", "chapitre", "numéro", "numero"].includes(this.low(k - 1))) return;
+        if (!lex.frBig.has(w) || this.isFirstGroupVerb(w)) return;
+        const plural = lex.frBig.has(w + "s") ? w + "s" : null;
+        if (plural && (lex.frCount.get(plural) ?? 0) > 0) this.set(k, plural);
+    }
+
+    /** "mes ami" → "mes amis", "des truc" → "des trucs" */
+    private pluralAfterDeterminer(k: number) {
+        const lex = this.lex!;
+        const w = this.low(k);
+        const prev = this.prev(k);
+        if (!this.plain[k] || !prev || !PLURAL_DET.has(prev) || w.length < 3 || NOT_NOUNS.has(w)) return;
+        if (/[sxz]$/.test(w) || !lex.frBig.has(w)) return;
+        // a verb form ("des mange") is never what follows: only nouns/adjectives get an "s"
+        if (this.isFirstGroupVerb(w) && !lex.frBig.has(w + "s")) return;
+        const plural = lex.frBig.has(w + "s") ? w + "s" : /(?:al)$/.test(w) && lex.frBig.has(w.slice(0, -2) + "aux") ? w.slice(0, -2) + "aux"
+            : /(?:eau|eu)$/.test(w) && lex.frBig.has(w + "x") ? w + "x" : null;
+        // "des" after a verb can be "de + les" before a singular mass noun? never: it is always plural
+        if (plural && (lex.frCount.get(plural) ?? 0) > 0) this.set(k, plural);
     }
 
     /** "j'ai manger" → "j'ai mangé", "je vais mangé" → "je vais manger" */
@@ -796,6 +1025,22 @@ class LineCorrector {
         let prev = this.prev(k, false);
         if (prev && ADVERBS.has(prev) && k >= 2) prev = this.prev(k - 1, false);
         if (!prev) return;
+        // "j'ai était" → "j'ai été"
+        if (AVOIR.has(prev) && (w === "était" || w === "etait")) return this.set(k, "été");
+        // "je suis aller" → "je suis allé" (être as auxiliary; "c'est manger" stays)
+        const beforePrev = k >= 2 ? this.prev(k - 1, true) : null;
+        if (ETRE_AUX.has(prev) && beforePrev !== "c" && w.endsWith("er") && lex.frBig.has(w)) {
+            const participle = w.slice(0, -2) + "é";
+            if (lex.frBig.has(participle) && (lex.frRank.get(w) ?? Infinity) <= 30000) this.set(k, participle);
+            return;
+        }
+        // "pour mangé" → "pour manger", "en train de mangé"
+        const infinitivePrev = INFINITIVE_PREV.has(prev) || (prev === "de" && beforePrev === "train");
+        if (infinitivePrev && w.endsWith("é") && w !== "été" && lex.frBig.has(w)) {
+            const infinitive = w.slice(0, -1) + "er";
+            if (lex.frBig.has(infinitive) && (lex.frRank.get(infinitive) ?? Infinity) <= 30000) this.set(k, infinitive);
+            return;
+        }
         if (AVOIR.has(prev) && w.endsWith("er") && lex.frBig.has(w)) {
             const participle = w.slice(0, -2) + "é";
             // "il a à manger" keeps its infinitive; "a" turned into "à" above already
@@ -817,11 +1062,36 @@ class LineCorrector {
         this.plain[k + 1] = false;
     }
 
+    /** "traité": the past participle of a common -er verb (never a noun like "clé") */
+    private isErParticiple(word: string): boolean {
+        if (!word.endsWith("é") || word === "été") return false;
+        const lex = this.lex!;
+        return lex.frBig.has(word) && (lex.frRank.get(word.slice(0, -1) + "er") ?? Infinity) <= 30000;
+    }
+
+    /** the word was typed without its accents ("ete") and fixed by the accent pass */
+    private typedWithoutAccent(k: number): boolean {
+        return this.typed[k] !== undefined && stripAccents(this.typed[k]) === this.typed[k] && this.typed[k] !== this.low(k);
+    }
+
+    /** "parle" is a present form of a common -er verb ("parler") */
+    private isFirstGroupVerb(form: string): boolean {
+        const lex = this.lex!;
+        return lex.frBig.has(form) && (lex.frRank.get(form + "r") ?? Infinity) <= 30000;
+    }
+
+    /** a conjugated verb that can follow the reflexive "se" */
+    private isVerbForm(word: string): boolean {
+        if (SE_IRREGULAR.has(word)) return true;
+        if (word.endsWith("ent")) return this.isFirstGroupVerb(word.slice(0, -2));
+        return word.endsWith("e") && this.isFirstGroupVerb(word);
+    }
+
     /** pronoun/verb agreement: "tu peut" → "tu peux", "il fais" → "il fait" */
     private conjugation(k: number) {
         const lex = this.lex!;
         // "parle" is a present form of a common -er verb ("parler")
-        const isFirstGroupVerb = (form: string) => lex.frBig.has(form) && (lex.frRank.get(form + "r") ?? Infinity) <= 30000;
+        const isFirstGroupVerb = (form: string) => this.isFirstGroupVerb(form);
         const w = this.low(k);
         if (!this.plain[k] || CLITICS.has(w)) return;
         let j = k - 1;
@@ -834,6 +1104,10 @@ class LineCorrector {
 
         const next = this.toks[this.words[k] + 1]?.t ?? "";
         if (/^-/.test(next)) return;
+        if (w === "par") {
+            const after = this.next(k);
+            if (!after || PAR_PREPOSITION_NEXT.has(after) || (after === "la" && this.next(k + 1) === "suite")) return;
+        }
 
         if (subj === "je" || subj === "tu") {
             const form = JE_TU_FORM.get(w);

@@ -8,12 +8,15 @@ import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
 import { definePluginSettings } from "@api/Settings";
 import { openPluginModal } from "@components/settings/tabs/plugins/PluginModal";
 import { showApiKeyWarning } from "@utils/apiKeyWarning";
-import definePlugin, { OptionType } from "@utils/types";
-import { React } from "@webpack/common";
+import definePlugin, { OptionType, PluginNative } from "@utils/types";
+import { GuildMemberStore, React, SelectedGuildStore, UserStore } from "@webpack/common";
 
 import plugins from "~plugins";
 
 import { groqChat, hasAnyAIKey } from "../zenkordAI/groqManager";
+import { SLANG } from "./engine";
+
+const Native = VencordNative.pluginHelpers.AutoCorrect as PluginNative<typeof import("./native")>;
 
 // ── Settings ───────────────────────────────────────────────────────────────────
 
@@ -25,7 +28,7 @@ const settings = definePluginSettings({
     },
     language: {
         type: OptionType.SELECT,
-        description: "Correction language",
+        description: "Main language (French and English are corrected offline and can be mixed in one message)",
         options: [
             { label: "English", value: "en", default: true },
             { label: "French", value: "fr" },
@@ -34,6 +37,31 @@ const settings = definePluginSettings({
             { label: "Italian", value: "it" },
             { label: "Portuguese", value: "pt" },
         ],
+    },
+    punctuation: {
+        type: OptionType.BOOLEAN,
+        description: "Fix punctuation: capital letters, question marks, commas and spacing",
+        default: true,
+    },
+    finalPeriod: {
+        type: OptionType.BOOLEAN,
+        description: "End statements of 3 words or more with a period",
+        default: true,
+    },
+    frenchSpacing: {
+        type: OptionType.BOOLEAN,
+        description: "French typography: a space before ? ! : ;",
+        default: true,
+    },
+    useAI: {
+        type: OptionType.BOOLEAN,
+        description: "Also run the AI (ZenkordAI / Groq key) after the offline correction for complex grammar",
+        default: false,
+    },
+    customWords: {
+        type: OptionType.STRING,
+        description: "Words that must never be corrected, separated by commas (nicknames, game terms…)",
+        default: "",
     },
 });
 
@@ -50,6 +78,9 @@ const PROTECTED_REGEXES: RegExp[] = [
     /https?:\/\/\S+/g, // links
     /```[\s\S]*?```/g, // code block
     /`[^`]+`/g, // inline code
+    /<t:-?\d+(?::\w)?>/g, // timestamp
+    /<\/[\w -]+:\d+>/g, // slash command mention
+    /:\w+:/g, // emoji shortcode
 ];
 
 // ── Slang / abbreviation whitelist ──────────────────────────────────────────────
@@ -57,7 +88,7 @@ const PROTECTED_REGEXES: RegExp[] = [
 // that the model must leave completely untouched instead of "fixing" or
 // expanding into a full sentence. Matched as whole words, case-insensitive.
 
-const SLANG_WHITELIST = [
+const LEGACY_SLANG_WHITELIST = [
     // French — internet / SMS
     "mdr", "mdrr", "mdrrr", "mdrrrr", "ptdr", "xptdr", "jsp", "jss", "jpp", "wsh", "wesh",
     "tkt", "tqt", "dsl", "stp", "svp", "bcp", "cc", "slt", "bjr", "bsr", "bg", "gg", "ggwp",
@@ -80,17 +111,26 @@ function escapeRegExp(s: string): string {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// single letters ("l", "w") would also match the "l" of "l'ami"
+const SLANG_WHITELIST = [...new Set([...LEGACY_SLANG_WHITELIST, ...[...SLANG].filter(w => w.length >= 2)])];
+
 const INTENTIONAL_TOKEN_REGEX = new RegExp(
     `\\b(?:${SLANG_WHITELIST.map(escapeRegExp).join("|")})\\b`,
     "gi"
 );
+
+function customWordsRegex(): RegExp | null {
+    const words = (settings.store.customWords ?? "").split(",").map(w => w.trim()).filter(Boolean);
+    return words.length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${words.map(escapeRegExp).join("|")})(?![\\p{L}\\p{N}])`, "giu") : null;
+}
 
 interface MaskResult {
     masked: string;
     map: Map<string, string>;
 }
 
-function maskProtectedTokens(text: string): MaskResult {
+/** `withSlang`: also hide abbreviations (the AI model must not see them) */
+function maskProtectedTokens(text: string, withSlang = true): MaskResult {
     const map = new Map<string, string>();
     let counter = 0;
     let masked = text;
@@ -102,7 +142,9 @@ function maskProtectedTokens(text: string): MaskResult {
     };
 
     for (const re of PROTECTED_REGEXES) masked = masked.replace(re, mask);
-    masked = masked.replace(INTENTIONAL_TOKEN_REGEX, mask);
+    const custom = customWordsRegex();
+    if (custom) masked = masked.replace(custom, mask);
+    if (withSlang) masked = masked.replace(INTENTIONAL_TOKEN_REGEX, mask);
 
     return { masked, map };
 }
@@ -364,7 +406,56 @@ const LANG_PROMPTS: Record<string, string> = {
         "Retorne APENAS o texto corrigido, sem aspas ou explicação.",
 };
 
-async function correctText(text: string): Promise<string> {
+// ── Offline correction (engine.ts, run by native.ts) ───────────────────────────
+
+let namesCache: { at: number; names: Set<string>; } | null = null;
+
+/** usernames and nicknames: never "fixed" into a dictionary word */
+function knownNames(): Set<string> {
+    if (namesCache && Date.now() - namesCache.at < 60_000) return namesCache.names;
+    const names = new Set<string>();
+    const add = (s?: string | null) => {
+        for (const w of s?.toLowerCase().match(/\p{L}+/gu) ?? []) if (w.length >= 3) names.add(w);
+    };
+    try {
+        for (const user of Object.values(UserStore.getUsers())) {
+            add(user.username);
+            add(user.globalName);
+        }
+    } catch { }
+    try {
+        const guildId = SelectedGuildStore.getGuildId();
+        if (guildId) for (const member of GuildMemberStore.getMembers(guildId)) add(member.nick);
+    } catch { }
+    namesCache = { at: Date.now(), names };
+    return names;
+}
+
+async function correctLocally(text: string): Promise<string> {
+    if (!Native?.correct) return text;
+    const { masked, map } = maskProtectedTokens(text, false);
+    const names = knownNames();
+    const protectedWords = [...new Set(masked.toLowerCase().match(/\p{L}+/gu) ?? [])].filter(w => names.has(w));
+
+    try {
+        const corrected = await Native.correct(masked, {
+            language: settings.store.language ?? "en",
+            punctuation: settings.store.punctuation,
+            finalPeriod: settings.store.finalPeriod,
+            frenchSpacing: settings.store.frenchSpacing,
+            protectedWords,
+        });
+        if (!corrected || !hasAllPlaceholdersExactlyOnce(corrected, map)) return text;
+        return unmaskTokens(corrected, map);
+    } catch (e) {
+        console.warn("[AutoCorrect] Offline correction error:", e);
+        return text;
+    }
+}
+
+// ── Optional AI pass ───────────────────────────────────────────────────────────
+
+async function correctWithAI(text: string): Promise<string> {
     if (text.trim().length < 3) return text;
 
     const lang = settings.store.language ?? "en";
@@ -469,8 +560,8 @@ const AutoCorrectChatBarButton: ChatBarButtonFactory = ({ type }) => {
     if (!validChat) return null;
 
     const toggle = async () => {
-        if (!enabled) {
-            // Vérifie que la clé API est configurée avant d'activer
+        if (!enabled && settings.store.useAI) {
+            // La correction hors ligne marche sans clé ; seule l'option IA en demande une
             const key = await hasAnyAIKey();
             if (!key) {
                 showApiKeyWarning("AutoCorrect");
@@ -505,11 +596,14 @@ const AutoCorrectChatBarButton: ChatBarButtonFactory = ({ type }) => {
 export default definePlugin({
     name: "AutoCorrect",
     enabledByDefault: true,
-    description: "Automatically corrects spelling, grammar and punctuation before sending. Requires a free Groq API key configured in ZenkordAI.",
+    description: "Corrects spelling, grammar and punctuation before sending, word for word and offline (French and English, mixed). Slang and insults are kept and spelled right. Optional AI pass with a ZenkordAI key.",
     authors: [{ name: "Zenkord", id: 0n }],
     settings,
 
-    start() { },
+    start() {
+        // downloads the dictionaries once (≈ 9 MB), then loads them from the cache
+        Native?.warmup?.();
+    },
 
     chatBarButton: {
         icon: () => <AutoCorrectIcon enabled={settings.store.isActive} />,
@@ -518,11 +612,13 @@ export default definePlugin({
 
     async onBeforeMessageSend(_channelId: string, message: { content: string; }) {
         if (!settings.store.isActive) return;
-        if (!message.content || message.content.trim().length < 3) return;
+        const original = message.content;
+        if (!original || original.trim().length < 2) return;
+        // bot commands ("!play", ".help", "-skip"…) are sent untouched
+        if (/^[!./$+%=;?-]\S/.test(original.trimStart())) return;
 
-        const corrected = await correctText(message.content);
-        if (corrected && corrected !== message.content) {
-            message.content = corrected;
-        }
+        let corrected = await correctLocally(original);
+        if (settings.store.useAI && await hasAnyAIKey()) corrected = await correctWithAI(corrected);
+        if (corrected && corrected !== original) message.content = corrected;
     },
 });

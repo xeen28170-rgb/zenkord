@@ -38,6 +38,9 @@ export let PresenceStore: t.PresenceStore;
 export let AccessibilityStore: t.AccessibilityStore;
 
 export let GuildStore: t.GuildStore;
+
+export let SortedGuildStore: t.SortedGuildStore;
+export let PrivateChannelSortStore: t.PrivateChannelSortStore;
 export let GuildRoleStore: t.GuildRoleStore;
 export let GuildScheduledEventStore: t.GuildScheduledEventStore;
 export let GuildMemberCountStore: t.GuildMemberCountStore;
@@ -126,6 +129,8 @@ waitForStore("UploadAttachmentStore", m => UploadAttachmentStore = m);
 waitForStore("RunningGameStore", m => RunningGameStore = m);
 waitForStore("ActiveJoinedThreadsStore", m => ActiveJoinedThreadsStore = m);
 waitForStore("UserGuildSettingsStore", m => UserGuildSettingsStore = m);
+waitForStore("SortedGuildStore", m => SortedGuildStore = m);
+waitForStore("PrivateChannelSortStore", m => PrivateChannelSortStore = m);
 waitForStore("UserSettingsProtoStore", m => UserSettingsProtoStore = m);
 waitForStore("CallStore", m => CallStore = m);
 waitForStore("ChannelRTCStore", m => ChannelRTCStore = m);

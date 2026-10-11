@@ -169,8 +169,15 @@ export const ChannelRouter: t.ChannelRouter = mapMangledModuleLazy('"Thread must
     transitionToThread: filters.byCode('"Thread must have a parent ID."')
 });
 
-export let SettingsRouter: any;
-waitFor(["openUserSettings", "USER_SETTINGS_MODAL_KEY"], m => SettingsRouter = m);
+// FIX (Discord 1.0.9260+): l'ancien export "USER_SETTINGS_MODAL_KEY" n'existe
+// plus dans le module des settings, donc waitFor(["openUserSettings",
+// "USER_SETTINGS_MODAL_KEY"]) ne matchait JAMAIS et SettingsRouter restait
+// undefined -> tout bouton appelant SettingsRouter.openUserSettings plantait
+// avec "Cannot read properties of undefined (reading 'openUserSettings')".
+// On résout maintenant par le code du dispatch, comme Vencord upstream.
+export const SettingsRouter: any = mapMangledModuleLazy('type:"USER_SETTINGS_MODAL_OPEN"', {
+    openUserSettings: filters.byCode('type:"USER_SETTINGS_MODAL_OPEN"')
+});
 
 export const PermissionsBits: t.PermissionsBits = findLazy(m => typeof m.ADMINISTRATOR === "bigint");
 

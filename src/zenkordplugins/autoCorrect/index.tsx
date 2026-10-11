@@ -53,6 +53,11 @@ const settings = definePluginSettings({
         description: "French typography: a space before ? ! : ;",
         default: true,
     },
+    languageTool: {
+        type: OptionType.BOOLEAN,
+        description: "Check grammar with LanguageTool (agreements, a/à, ces/c'est, conjugation…). Your messages are sent to api.languagetool.org",
+        default: false,
+    },
     useAI: {
         type: OptionType.BOOLEAN,
         description: "Also run the AI (ZenkordAI / Groq key) after the offline correction for complex grammar",
@@ -453,6 +458,41 @@ async function correctLocally(text: string): Promise<string> {
     }
 }
 
+// ── Grammar pass (LanguageTool, run by native.ts) ──────────────────────────────
+
+/** mentions, links, slang, custom words and nicknames: LanguageTool must not touch them */
+function protectedRanges(text: string): Array<[number, number]> {
+    const custom = customWordsRegex();
+    const regexes = [...PROTECTED_REGEXES, INTENTIONAL_TOKEN_REGEX, ...(custom ? [custom] : [])];
+    const ranges = regexes.flatMap(re => [...text.matchAll(re)].map((m): [number, number] => [m.index, m.index + m[0].length]));
+    const names = knownNames();
+    for (const m of text.matchAll(/\p{L}+/gu)) {
+        if (names.has(m[0].toLowerCase())) ranges.push([m.index, m.index + m[0].length]);
+    }
+    return ranges;
+}
+
+async function correctGrammar(text: string): Promise<string> {
+    if (!Native?.checkGrammar) return text;
+    try {
+        const matches = await Native.checkGrammar(text, settings.store.language ?? "en");
+        const ranges = protectedRanges(text);
+        let result = text;
+        let limit = text.length;
+        // from the end so the earlier offsets stay valid
+        for (const { offset, length, replacement } of matches.sort((a, b) => b.offset - a.offset)) {
+            const end = offset + length;
+            if (end > limit || ranges.some(([start, stop]) => offset < stop && start < end)) continue;
+            result = result.slice(0, offset) + replacement + result.slice(end);
+            limit = offset;
+        }
+        return result;
+    } catch (e) {
+        console.warn("[AutoCorrect] LanguageTool unavailable, message kept as is:", e);
+        return text;
+    }
+}
+
 // ── Optional AI pass ───────────────────────────────────────────────────────────
 
 async function correctWithAI(text: string): Promise<string> {
@@ -596,7 +636,7 @@ const AutoCorrectChatBarButton: ChatBarButtonFactory = ({ type }) => {
 export default definePlugin({
     name: "AutoCorrect",
     enabledByDefault: true,
-    description: "Corrects spelling, grammar and punctuation before sending, word for word and offline (French and English, mixed). Slang and insults are kept and spelled right. Optional AI pass with a ZenkordAI key.",
+    description: "Corrects spelling, grammar and punctuation before sending, word for word and offline (French and English, mixed). Slang and insults are kept and spelled right. Optional grammar check with LanguageTool and AI pass with a ZenkordAI key.",
     authors: [{ name: "Zenkord", id: 0n }],
     settings,
 
@@ -618,6 +658,7 @@ export default definePlugin({
         if (/^[!./$+%=;?-]\S/.test(original.trimStart())) return;
 
         let corrected = await correctLocally(original);
+        if (settings.store.languageTool) corrected = await correctGrammar(corrected);
         if (settings.store.useAI && await hasAnyAIKey()) corrected = await correctWithAI(corrected);
         if (corrected && corrected !== original) message.content = corrected;
     },

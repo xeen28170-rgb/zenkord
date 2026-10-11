@@ -108,12 +108,12 @@ const Native = {
         const res = await sfetch("/devices");
         return (res?.devices ?? []).map((d: string) => ({ label: d, dshowName: d }));
     },
-    async connectGhost(userId: string, token: string, guildId: string, channelId: string, micDevice: string): Promise<{ ok: boolean; error?: string }> {
+    async connectGhost(userId: string, token: string, guildId: string, channelId: string, micDevice: string): Promise<{ ok: boolean; error?: string; notInServer?: boolean; }> {
         const n = getNative();
         if (n?.connectGhost) { try { return await n.connectGhost(userId, token, guildId, channelId, micDevice); } catch {} }
         return await sfetch("/connect", { userId, token, guildId, channelId, micDevice }, 120000);
     },
-    async preConnectGhost(userId: string, token: string, micDevice: string): Promise<{ ok: boolean; error?: string }> {
+    async preConnectGhost(userId: string, token: string, micDevice: string): Promise<{ ok: boolean; error?: string; notInServer?: boolean; }> {
         const n = getNative();
         if (n?.preConnectGhost) { try { return await n.preConnectGhost(userId, token, micDevice); } catch {} }
         return await sfetch("/preconnect", { userId, token, micDevice }, 120000);
@@ -707,8 +707,13 @@ function startFollowing() {
                                 return;
                             }
                         }
-                        let realToken = acc.token;
-                        try { realToken = await decryptToken(acc.token); } catch {}
+                        const realToken = await decryptToken(acc.token);
+                        if (realToken.startsWith("dQw4w9WgXcQ:")) {
+                            const cur = ghostStates.get(acc.userId) ?? defaultState();
+                            ghostStates.set(acc.userId, { ...cur, active: false, connecting: false, error: t("Decrypt failed — re-add this account") });
+                            notify();
+                            return;
+                        }
                         const cur = ghostStates.get(acc.userId) ?? defaultState();
                         ghostStates.set(acc.userId, { ...cur, connecting: true });
                         notify();
@@ -747,8 +752,13 @@ function startFollowing() {
                                 continue;
                             }
                         }
-                        let realToken = acc.token;
-                        try { realToken = await decryptToken(acc.token); } catch {}
+                        const realToken = await decryptToken(acc.token);
+                        if (realToken.startsWith("dQw4w9WgXcQ:")) {
+                            const cur = ghostStates.get(acc.userId) ?? defaultState();
+                            ghostStates.set(acc.userId, { ...cur, active: false, connecting: false, error: t("Decrypt failed — re-add this account") });
+                            notify();
+                            continue;
+                        }
                         const cur = ghostStates.get(acc.userId) ?? defaultState();
                         ghostStates.set(acc.userId, { ...cur, connecting: true });
                         notify();
@@ -1276,11 +1286,8 @@ function GhostPopover({ onClose, anchorRect }: { onClose: () => void; anchorRect
                     <div className="gc-dropdown-label"><UserIcon /><span>{t("Active accounts")}</span></div>
                     <Select
                         options={accountOptions}
-                        value={selectedId}
                         isSelected={(item: any) => extractOptionValue(item) === selectedId}
                         select={(val: any) => handleAccountSelect(val)}
-                        onSelectionChange={(val: any) => handleAccountSelect(val)}
-                        onChange={(val: any) => handleAccountSelect(val)}
                         serialize={(val: any) => extractOptionValue(val)}
                         placeholder={t("Select account...")}
                         closeOnSelect={true}
@@ -1294,11 +1301,8 @@ function GhostPopover({ onClose, anchorRect }: { onClose: () => void; anchorRect
                     <div className="gc-dropdown-label"><MicIcon /><span>{t("Source microphone")}</span></div>
                     <Select
                         options={micOptions}
-                        value={micLabel}
                         isSelected={(item: any) => extractOptionValue(item) === micLabel}
                         select={handleMicSelect}
-                        onSelectionChange={handleMicSelect}
-                        onChange={handleMicSelect}
                         serialize={(v: any) => extractOptionValue(v)}
                         closeOnSelect={true}
                         maxVisibleItems={8}
@@ -1390,7 +1394,6 @@ function GhostPopover({ onClose, anchorRect }: { onClose: () => void; anchorRect
                                 }}
                                 onValueRender={(v: number) => `${Math.round(v)}%`}
                                 markers={[0, 100, 200, 300, 400, 500]}
-                                equidistant={true}
                             />
                         </div>
                     ) : (
@@ -1427,7 +1430,7 @@ function GhostPopover({ onClose, anchorRect }: { onClose: () => void; anchorRect
                     <button
                         style={{ background: "none", border: "none", color: "#5865f2", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: "2px 4px" }}
                         onClick={async () => {
-                            Toasts.show({ message: t("Checking tokens..."), type: Toasts.Type.INFO, id: Toasts.genId() });
+                            Toasts.show({ message: t("Checking tokens..."), type: Toasts.Type.MESSAGE, id: Toasts.genId() });
                             let ok = 0;
                             const refreshed = await getAllSavedAccounts();
                             setAccounts(refreshed);
@@ -1718,8 +1721,13 @@ const GhostUserAreaButton = ({ iconForeground, hideTooltips, nameplate }: any) =
                 }
             }
 
-            let realToken = acc.token;
-            try { realToken = await decryptToken(acc.token); } catch {}
+            const realToken = await decryptToken(acc.token);
+            if (realToken.startsWith("dQw4w9WgXcQ:")) {
+                const cur = ghostStates.get(acc.userId) ?? defaultState();
+                ghostStates.set(acc.userId, { ...cur, active: false, connecting: false, error: t("Decrypt failed — re-add this account") });
+                notify();
+                return;
+            }
             if (_cancelBatch || _leavingUsers.has(acc.userId)) return;
 
             const cur = ghostStates.get(acc.userId) ?? defaultState();

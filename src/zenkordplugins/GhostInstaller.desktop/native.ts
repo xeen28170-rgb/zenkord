@@ -374,7 +374,7 @@ function extractZipUrlFromRelease(release: any): string | null {
     return null;
 }
 
-export async function resolveLatestReleaseDownloadUrl(inputUrl: string): Promise<{ downloadUrl: string; releaseName?: string; tag?: string; }> {
+async function resolveLatestReleaseDownloadUrl(inputUrl: string): Promise<{ downloadUrl: string; releaseName?: string; tag?: string; }> {
     const trimmed = inputUrl.trim();
     if (!trimmed) {
         throw new Error("No release URL provided");
@@ -766,7 +766,7 @@ async function killRunningServer(): Promise<void> {
     }
 }
 
-export async function patchGhostClient(options: { githubUrl?: string; discordRoot?: string; } = {}): Promise<NativeResult<ActionInfo>> {
+export async function patchGhostClient(_: Electron.IpcMainInvokeEvent, options: { githubUrl?: string; discordRoot?: string; } = {}): Promise<NativeResult<ActionInfo>> {
     if (currentProgress.active) {
         log("WARN: GhostClient installation already in progress, returning existing task.");
         const info = await getInstallInfo(options.discordRoot);
@@ -1023,7 +1023,7 @@ export async function patchGhostClient(options: { githubUrl?: string; discordRoo
     }
 }
 
-export async function revertGhostClient(options: { discordRoot?: string; } = {}): Promise<NativeResult<ActionInfo>> {
+export async function revertGhostClient(_: Electron.IpcMainInvokeEvent, options: { discordRoot?: string; } = {}): Promise<NativeResult<ActionInfo>> {
     if (currentProgress.active) {
         log("WARN: An operation is already in progress.");
         return {

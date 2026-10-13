@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { TimerIcon } from "@zenkordplugins/callTimer/TimerIcon";
+import { TimerIcon } from "@plugins/callTimer/TimerIcon";
 
 import { cancelScheduledStatusReset, setStatusDndForDuration } from "../../../registry";
 import type { PalettePageSpec, PaletteSuggestion } from "../types";

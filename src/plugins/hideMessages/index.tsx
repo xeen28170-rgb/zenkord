@@ -9,12 +9,12 @@ import { isPluginEnabled } from "@api/PluginManager";
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { EyeIcon } from "@components/Icons";
+import pinDms from "@plugins/pinDms";
+import { isPinned } from "@plugins/pinDms/data";
 import { EquicordDevs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { Channel, Message } from "@vencord/discord-types";
 import { ChannelStore, Clickable, FluxDispatcher, Menu, Tooltip } from "@webpack/common";
-import pinDms from "@zenkordplugins/pinDms";
-import { isPinned } from "@zenkordplugins/pinDms/data";
 
 interface UserContextProps {
     channel?: Channel;
